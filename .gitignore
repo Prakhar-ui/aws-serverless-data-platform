@@ -1,1 +1,17 @@
 data/
+
+# Terraform cache
+.terraform/
+
+# Terraform state files
+*.tfstate
+*.tfstate.backup
+
+# Terraform variable files (optional/sensitive)
+*.tfvars
+
+# macOS files
+.DS_Store
+
+# Crash logs
+crash.log
