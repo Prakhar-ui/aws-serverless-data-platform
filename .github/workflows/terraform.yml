@@ -6,14 +6,13 @@ on:
       - main
 
 jobs:
-  terraform:
-    name: Terraform Deployment
+  s3:
     runs-on: ubuntu-latest
 
     defaults:
       run:
-        working-directory: ./terraform
-        
+        working-directory: ./terraform/s3
+
     steps:
 
       - name: Checkout Code
