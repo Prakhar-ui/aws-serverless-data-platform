@@ -19,7 +19,7 @@ resource "aws_s3_bucket" "bronze_bucket" {
 }
 
 # Enable Server Side Encryption
-resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
+resource "aws_s3_bucket_server_side_encryption_configuration" "bronze_encryption" {
   bucket = aws_s3_bucket.bronze_bucket.id
 
   rule {
@@ -30,7 +30,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
 }
 
 # Block Public Access
-resource "aws_s3_bucket_public_access_block" "public_access" {
+resource "aws_s3_bucket_public_access_block" "bronze_public_access" {
   bucket = aws_s3_bucket.bronze_bucket.id
 
   block_public_acls       = true
@@ -50,7 +50,7 @@ resource "aws_s3_bucket" "silver_bucket" {
 }
 
 # Enable Server Side Encryption
-resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
+resource "aws_s3_bucket_server_side_encryption_configuration" "silver_encryption" {
   bucket = aws_s3_bucket.silver_bucket.id
 
   rule {
@@ -61,7 +61,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
 }
 
 # Block Public Access
-resource "aws_s3_bucket_public_access_block" "public_access" {
+resource "aws_s3_bucket_public_access_block" "silver_public_access" {
   bucket = aws_s3_bucket.silver_bucket.id
 
   block_public_acls       = true
@@ -81,7 +81,7 @@ resource "aws_s3_bucket" "gold_bucket" {
 }
 
 # Enable Server Side Encryption
-resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
+resource "aws_s3_bucket_server_side_encryption_configuration" "gold_encryption" {
   bucket = aws_s3_bucket.gold_bucket.id
 
   rule {
@@ -92,7 +92,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
 }
 
 # Block Public Access
-resource "aws_s3_bucket_public_access_block" "public_access" {
+resource "aws_s3_bucket_public_access_block" "gold_public_access" {
   bucket = aws_s3_bucket.gold_bucket.id
 
   block_public_acls       = true
