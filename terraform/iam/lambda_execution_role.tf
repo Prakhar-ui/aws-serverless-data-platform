@@ -1,28 +1,35 @@
-resource "aws_iam_role" "lambda_role" {
-  name = "yt-data-pipeline-lambda-role-dev"
+# Inline Policy for Bronze S3 Bucket Access
+resource "aws_iam_role_policy" "lambda_bronze_s3_policy" {
+  name = "lambda-bronze-s3-access-policy"
+  role = aws_iam_role.lambda_role.id
 
-  assume_role_policy = jsonencode({
+  policy = jsonencode({
     Version = "2012-10-17"
+
     Statement = [
       {
         Effect = "Allow"
 
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
+        Action = [
+          "s3:ListBucket"
+        ]
 
-        Action = "sts:AssumeRole"
+        Resource = [
+          "arn:aws:s3:::yt-data-pipeline-bronze-prakhar"
+        ]
+      },
+      {
+        Effect = "Allow"
+
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject"
+        ]
+
+        Resource = [
+          "arn:aws:s3:::yt-data-pipeline-bronze-prakhar/*"
+        ]
       }
     ]
   })
-
-  tags = {
-    Name        = "yt-data-pipeline-lambda-role-dev"
-    Environment = "dev"
-  }
-}
-
-resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
-  role       = aws_iam_role.lambda_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
