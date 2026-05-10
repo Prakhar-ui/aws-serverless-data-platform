@@ -1,23 +1,25 @@
 resource "aws_iam_role" "lambda_role" {
-    name = "yt-data-pipeline-lambda-role-dev"
+  name = "yt-data-pipeline-lambda-role-dev"
 
-    assume_role_policy = jsonencode({
-        Version = "2012-10-17"
-        Statement = [
-        {
-            Effect = "Allow"
-            Principal = {
-            Service = "lambda.amazonaws.com"
-            }
-            Action = "sts:AssumeRole"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Principal = {
+          Service = "lambda.amazonaws.com"
         }
-        ]
-    })
 
-    tags = {
-        Name        = "yt-data-pipeline-lambda-role-dev"
-        Environment = "dev"
-    }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "yt-data-pipeline-lambda-role-dev"
+    Environment = "dev"
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
