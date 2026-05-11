@@ -43,7 +43,8 @@ resource "aws_iam_role_policy" "lambda_bronze_s3_policy" {
         ]
 
         Resource = [
-          "arn:aws:s3:::yt-data-pipeline-bronze-prakhar"
+          "arn:aws:s3:::yt-data-pipeline-bronze-prakhar",
+          "arn:aws:s3:::yt-data-pipeline-silver-prakhar"
         ]
       },
       {
@@ -55,7 +56,8 @@ resource "aws_iam_role_policy" "lambda_bronze_s3_policy" {
         ]
 
         Resource = [
-          "arn:aws:s3:::yt-data-pipeline-bronze-prakhar/*"
+          "arn:aws:s3:::yt-data-pipeline-bronze-prakhar/*",
+          "arn:aws:s3:::yt-data-pipeline-silver-prakhar/*"
         ]
       }
     ]
