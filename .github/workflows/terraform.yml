@@ -213,7 +213,9 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan
-        run: terraform plan
+        run: terraform plan \
+          -var="youtube_api_key=${{ secrets.YOUTUBE_API_KEY }}"
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve
+        run: terraform apply -auto-approve \
+          -var="youtube_api_key=${{ secrets.YOUTUBE_API_KEY }}"
