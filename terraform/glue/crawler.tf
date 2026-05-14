@@ -10,8 +10,11 @@ resource "aws_glue_crawler" "bronze_crawler" {
   description = "Glue crawler for YouTube raw statistics data"
 
   s3_target {
-    path = ["s3://yt-data-pipeline-bronze-prakhar/youtube/raw_statistics/", 
-            "s3://yt-data-pipeline-bronze-prakhar/youtube/raw_statistics_reference_data/"]
+    path = "s3://yt-data-pipeline-bronze-prakhar/youtube/raw_statistics/"
+  }
+
+  s3_target {
+    path = "s3://yt-data-pipeline-bronze-prakhar/youtube/raw_statistics_reference_data/"
   }
 
   schema_change_policy {
