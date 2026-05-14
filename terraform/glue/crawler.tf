@@ -4,7 +4,7 @@
 
 resource "aws_glue_crawler" "bronze_crawler" {
   name          = "yt-data-pipeline-bronze-crawler-dev"
-  role          = aws_iam_role.glue_role.arn
+  role          = data.terraform_remote_state.iam.outputs.glue_role_arn
   database_name = aws_glue_catalog_database.bronze_db.name
 
   description = "Glue crawler for YouTube raw statistics data"
