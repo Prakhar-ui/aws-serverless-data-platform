@@ -16,13 +16,12 @@ data "terraform_remote_state" "iam" {
 # Create Lambda ZIP Package
 #################################################
 
-data "archive_file" "lambda_zip" {
-
+data "archive_file" "json_to_parquet_function_zip" {
   type = "zip"
 
-  source_file = "${path.module}/scripts/lambda_function.py"
+  source_file = "${path.module}/scripts/json_to_parquet/lambda_function.py"
 
-  output_path = "${path.module}/lambda.zip"
+  output_path = "${path.module}/json_to_parquet_function.zip"
 }
 
 #################################################
@@ -30,11 +29,11 @@ data "archive_file" "lambda_zip" {
 #################################################
 
 resource "aws_lambda_function" "yt_lambda" {
-
   function_name = "yt-data-pipeline-json-to-parquet-dev"
 
-  filename         = data.archive_file.lambda_zip.output_path
-  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  filename = data.archive_file.json_to_parquet_function_zip.output_path
+
+  source_code_hash = data.archive_file.json_to_parquet_function_zip.output_base64sha256
 
   role = data.terraform_remote_state.iam.outputs.lambda_iam_role_arn
 
@@ -45,16 +44,11 @@ resource "aws_lambda_function" "yt_lambda" {
   memory_size = 256
 
   environment {
-
     variables = {
-
       BRONZE_BUCKET = "yt-data-pipeline-bronze-prakhar"
-
       SILVER_BUCKET = "yt-data-pipeline-silver-prakhar"
-
-      GOLD_BUCKET = "yt-data-pipeline-gold-prakhar"
-
-      ENV = "dev"
+      GOLD_BUCKET   = "yt-data-pipeline-gold-prakhar"
+      ENV           = "dev"
     }
   }
 
