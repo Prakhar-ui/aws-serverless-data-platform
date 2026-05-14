@@ -49,7 +49,9 @@ resource "aws_lambda_function" "json_to_parquet_function" {
       S3_BUCKET_SILVER     = "yt-data-pipeline-silver-prakhar"
       GLUE_DB_SILVER       = "yt-pipeline-silver-dev"
       GLUE_TABLE_REFERENCE = "clean_reference_data"
+
       SNS_ALERT_TOPIC_ARN = "arn:aws:sns:ap-south-1:585008079281:yt-data-pipeline-alerts-dev"
+
       ENV = "dev"
     }
   }
