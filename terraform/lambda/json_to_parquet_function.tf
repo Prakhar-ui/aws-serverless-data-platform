@@ -1,22 +1,9 @@
 #################################################
-# Fetch Existing IAM Remote State
-#################################################
-
-data "terraform_remote_state" "iam" {
-  backend = "s3"
-
-  config = {
-    bucket = "yt-terraform-state-prakhar"
-    key    = "iam/terraform.tfstate"
-    region = "ap-south-1"
-  }
-}
-
-#################################################
 # Create Lambda ZIP Package
 #################################################
 
 data "archive_file" "json_to_parquet_function_zip" {
+
   type = "zip"
 
   source_file = "${path.module}/scripts/json_to_parquet/lambda_function.py"
@@ -28,7 +15,8 @@ data "archive_file" "json_to_parquet_function_zip" {
 # Lambda Function
 #################################################
 
-resource "aws_lambda_function" "yt_lambda" {
+resource "aws_lambda_function" "json_to_parquet_function" {
+
   function_name = "yt-data-pipeline-json-to-parquet-dev"
 
   filename = data.archive_file.json_to_parquet_function_zip.output_path
@@ -38,6 +26,7 @@ resource "aws_lambda_function" "yt_lambda" {
   role = data.terraform_remote_state.iam.outputs.lambda_iam_role_arn
 
   handler = "lambda_function.lambda_handler"
+
   runtime = "python3.12"
 
   timeout     = 60
@@ -53,7 +42,7 @@ resource "aws_lambda_function" "yt_lambda" {
   }
 
   tags = {
-    Name        = "yt-data-pipeline-lambda-dev"
+    Name        = "yt-data-pipeline-json-to-parquet-dev"
     Environment = "dev"
   }
 }
