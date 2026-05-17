@@ -15,7 +15,7 @@ data "archive_file" "data_quality_check_function_zip" {
 #################################################
 
 resource "aws_lambda_function" "data_quality_check_function" {
-  function_name = "data_quality_check"
+  function_name = "yt-data-pipeline-data-quality-check"
 
   filename         = data.archive_file.data_quality_check_function_zip.output_path
   source_code_hash = data.archive_file.data_quality_check_function_zip.output_base64sha256
