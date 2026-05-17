@@ -45,6 +45,6 @@ resource "aws_glue_job" "silver_to_gold_statistics_glue_job" {
   }
 
   depends_on = [
-    aws_s3_object.silver_to_gold_statistics_glue_job
+    aws_s3_object.silver_to_gold_analytics_glue_script
   ]
 }
