@@ -3,9 +3,10 @@
 #################################################
 
 data "archive_file" "json_to_parquet_function_zip" {
+
   type = "zip"
 
-  source_file = "${path.module}/scripts/json_to_parquet/lambda_function.py"
+  source_dir = "${path.module}/scripts/json_to_parquet"
 
   output_path = "${path.module}/json_to_parquet_function.zip"
 }
@@ -15,21 +16,47 @@ data "archive_file" "json_to_parquet_function_zip" {
 #################################################
 
 resource "aws_lambda_function" "json_to_parquet_function" {
+
   function_name = "yt-data-pipeline-json-to-parquet-dev"
 
-  filename         = data.archive_file.json_to_parquet_function_zip.output_path
+  #################################################
+  # Lambda Package
+  #################################################
+
+  filename = data.archive_file.json_to_parquet_function_zip.output_path
+
   source_code_hash = data.archive_file.json_to_parquet_function_zip.output_base64sha256
+
+  #################################################
+  # IAM Role
+  #################################################
 
   role = data.terraform_remote_state.iam.outputs.lambda_iam_role_arn
 
-  handler = "lambda_function.lambda_handler"
+  #################################################
+  # Runtime
+  #################################################
+
   runtime = "python3.12"
+
+  handler = "lambda_function.lambda_handler"
+
+  architectures = ["x86_64"]
+
+  #################################################
+  # AWS SDK Pandas Layer (awswrangler)
+  #################################################
+
+  layers = [
+    "arn:aws:lambda:ap-south-1:336392948345:layer:AWSSDKPandas-Python312:16"
+  ]
 
   #################################################
   # Lambda Configuration
   #################################################
 
-  timeout     = 300
+  timeout = 300
+
   memory_size = 512
 
   #################################################
@@ -45,9 +72,13 @@ resource "aws_lambda_function" "json_to_parquet_function" {
   #################################################
 
   environment {
+
     variables = {
-      S3_BUCKET_SILVER     = "yt-data-pipeline-silver-prakhar"
-      GLUE_DB_SILVER       = "yt-pipeline-silver-dev"
+
+      S3_BUCKET_SILVER = "yt-data-pipeline-silver-prakhar"
+
+      GLUE_DB_SILVER = "yt-pipeline-silver-dev"
+
       GLUE_TABLE_REFERENCE = "clean_reference_data"
 
       SNS_ALERT_TOPIC_ARN = "arn:aws:sns:ap-south-1:585008079281:yt-data-pipeline-alerts-dev"
@@ -61,7 +92,9 @@ resource "aws_lambda_function" "json_to_parquet_function" {
   #################################################
 
   tags = {
-    Name        = "yt-data-pipeline-json-to-parquet-dev"
+
+    Name = "yt-data-pipeline-json-to-parquet-dev"
+
     Environment = "dev"
   }
 }
