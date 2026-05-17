@@ -20,6 +20,10 @@ resource "aws_glue_job" "bronze_to_silver_statistics_glue_job" {
   }
 
   default_arguments = {
+    #################################################
+    # Glue Configuration
+    #################################################
+
     "--job-language" = "python"
 
     "--enable-continuous-cloudwatch-log" = "true"
@@ -30,7 +34,35 @@ resource "aws_glue_job" "bronze_to_silver_statistics_glue_job" {
 
     "--TempDir" = "s3://yt-data-pipeline-bronze-prakhar/glue/temp/"
 
+    #################################################
+    # Environment
+    #################################################
+
     "--ENV" = "dev"
+
+    #################################################
+    # Bronze Layer Parameters
+    #################################################
+
+    "--bronze_database" = "yt-pipeline-bronze-dev"
+
+    "--bronze_table" = "raw_statistics"
+
+    #################################################
+    # Silver Layer Parameters
+    #################################################
+
+    "--silver_bucket" = "yt-data-pipeline-silver-prakhar"
+
+    "--silver_database" = "yt-pipeline-silver-dev"
+
+    "--silver_table" = "clean_statistics"
+
+    "--silver_path" = "youtube/clean_statistics/"
+
+    #################################################
+    # Optional Additional Buckets
+    #################################################
 
     "--S3_BUCKET_BRONZE" = "yt-data-pipeline-bronze-prakhar"
 

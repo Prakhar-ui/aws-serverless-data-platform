@@ -20,6 +20,10 @@ resource "aws_glue_job" "silver_to_gold_analytics_glue_job" {
   }
 
   default_arguments = {
+    #################################################
+    # Glue Configuration
+    #################################################
+
     "--job-language" = "python"
 
     "--enable-continuous-cloudwatch-log" = "true"
@@ -30,7 +34,29 @@ resource "aws_glue_job" "silver_to_gold_analytics_glue_job" {
 
     "--TempDir" = "s3://yt-data-pipeline-bronze-prakhar/glue/temp/"
 
+    #################################################
+    # Environment
+    #################################################
+
     "--ENV" = "dev"
+
+    #################################################
+    # Silver Layer Parameters
+    #################################################
+
+    "--silver_database" = "yt-pipeline-silver-dev"
+
+    #################################################
+    # Gold Layer Parameters
+    #################################################
+
+    "--gold_bucket" = "yt-data-pipeline-gold-prakhar"
+
+    "--gold_database" = "yt-pipeline-gold-dev"
+
+    #################################################
+    # Optional Additional Buckets
+    #################################################
 
     "--S3_BUCKET_BRONZE" = "yt-data-pipeline-bronze-prakhar"
 
