@@ -1,5 +1,5 @@
-resource "aws_glue_job" "silver_to_gold_statistics_glue_job" {
-  name = "silver_to_gold_statistics"
+resource "aws_glue_job" "silver_to_gold_analytics_glue_job" {
+  name = "silver_to_gold_analytics"
 
   role_arn = data.terraform_remote_state.iam.outputs.glue_iam_role_arn
 
@@ -14,7 +14,7 @@ resource "aws_glue_job" "silver_to_gold_statistics_glue_job" {
   command {
     name = "glueetl"
 
-    script_location = "s3://yt-data-pipeline-bronze-prakhar/glue/scripts/silver_to_gold_statistics.py"
+    script_location = "s3://yt-data-pipeline-bronze-prakhar/glue/scripts/silver_to_gold_analytics.py"
 
     python_version = "3"
   }
@@ -40,7 +40,7 @@ resource "aws_glue_job" "silver_to_gold_statistics_glue_job" {
   }
 
   tags = {
-    Name        = "silver_to_gold_statistics"
+    Name        = "silver_to_gold_analytics"
     Environment = "dev"
   }
 
