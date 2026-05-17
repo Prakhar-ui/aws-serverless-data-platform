@@ -47,7 +47,7 @@ resource "aws_lambda_function" "data_quality_check_function" {
   environment {
     variables = {
       SNS_ALERT_TOPIC_ARN = "arn:aws:sns:ap-south-1:585008079281:yt-data-pipeline-alerts-dev"
-      DQ_MIN_ROW_COUNT = "10"
+      DQ_MIN_ROW_COUNT    = "10"
       DQ_MAX_NULL_PERCENT = "5.0"
 
       ENV = "dev"
