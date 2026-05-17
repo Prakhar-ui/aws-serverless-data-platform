@@ -27,11 +27,11 @@ output "bronze_to_silver_statistics_glue_job_arn" {
 }
 
 output "silver_to_gold_statistics_glue_job_name" {
-  value = aws_glue_job.silver_to_gold_statistics_glue_job.name
+  value = aws_glue_job.silver_to_gold_analytics_glue_job.name
 }
 
 output "silver_to_gold_statistics_glue_job_arn" {
-  value = aws_glue_job.silver_to_gold_statistics_glue_job.arn
+  value = aws_glue_job.silver_to_gold_analytics_glue_job.arn
 }
 
 output "bronze_to_silver_statistics_glue_script_s3_key" {
