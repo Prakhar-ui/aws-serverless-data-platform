@@ -5,14 +5,69 @@ on:
     branches:
       - main
 
+env:
+  TF_PLUGIN_CACHE_DIR: ~/.terraform.d/plugin-cache
+
 jobs:
+
+  #################################################
+  # Detect Changed Terraform Modules
+  #################################################
+
+  changes:
+
+    runs-on: ubuntu-latest
+
+    outputs:
+      s3: ${{ steps.filter.outputs.s3 }}
+      iam: ${{ steps.filter.outputs.iam }}
+      sns: ${{ steps.filter.outputs.sns }}
+      glue: ${{ steps.filter.outputs.glue }}
+      lambda: ${{ steps.filter.outputs.lambda }}
+      step_function: ${{ steps.filter.outputs.step_function }}
+
+    steps:
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Detect Changed Files
+        uses: dorny/paths-filter@v3
+        id: filter
+
+        with:
+          filters: |
+
+            s3:
+              - 'terraform/s3/**'
+
+            iam:
+              - 'terraform/iam/**'
+
+            sns:
+              - 'terraform/sns/**'
+
+            glue:
+              - 'terraform/glue/**'
+
+            lambda:
+              - 'terraform/lambda/**'
+
+            step_function:
+              - 'terraform/step-function/**'
 
   #################################################
   # S3 Infrastructure
   #################################################
 
   s3:
+
+    if: needs.changes.outputs.s3 == 'true'
+
     runs-on: ubuntu-latest
+
+    needs:
+      - changes
 
     defaults:
       run:
@@ -22,6 +77,12 @@ jobs:
 
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Cache Terraform Plugins
+        uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: terraform-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -53,9 +114,13 @@ jobs:
   #################################################
 
   iam:
+
+    if: needs.changes.outputs.iam == 'true'
+
     runs-on: ubuntu-latest
 
     needs:
+      - changes
       - s3
 
     defaults:
@@ -66,6 +131,12 @@ jobs:
 
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Cache Terraform Plugins
+        uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: terraform-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -97,7 +168,13 @@ jobs:
   #################################################
 
   sns:
+
+    if: needs.changes.outputs.sns == 'true'
+
     runs-on: ubuntu-latest
+
+    needs:
+      - changes
 
     defaults:
       run:
@@ -107,6 +184,12 @@ jobs:
 
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Cache Terraform Plugins
+        uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: terraform-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -138,9 +221,13 @@ jobs:
   #################################################
 
   glue:
+
+    if: needs.changes.outputs.glue == 'true'
+
     runs-on: ubuntu-latest
 
     needs:
+      - changes
       - s3
       - iam
 
@@ -152,6 +239,12 @@ jobs:
 
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Cache Terraform Plugins
+        uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: terraform-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -183,9 +276,13 @@ jobs:
   #################################################
 
   lambda:
+
+    if: needs.changes.outputs.lambda == 'true'
+
     runs-on: ubuntu-latest
 
     needs:
+      - changes
       - iam
       - sns
       - glue
@@ -198,6 +295,12 @@ jobs:
 
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Cache Terraform Plugins
+        uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: terraform-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -229,9 +332,13 @@ jobs:
   #################################################
 
   step_function:
+
+    if: needs.changes.outputs.step_function == 'true'
+
     runs-on: ubuntu-latest
 
     needs:
+      - changes
       - iam
       - sns
       - glue
@@ -242,8 +349,15 @@ jobs:
         working-directory: ./terraform/step-function
 
     steps:
+
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Cache Terraform Plugins
+        uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: terraform-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
