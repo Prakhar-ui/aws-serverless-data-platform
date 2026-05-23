@@ -101,7 +101,8 @@ resource "aws_iam_role_policy" "step_function_inline_policy" {
           "sns:Publish"
         ]
 
-        Resource = "arn:aws:sns:ap-south-1:*:yt-data-pipeline-*"
+        Resource = "arn:aws:sns:ap-south-1:585008079281:yt-data-pipeline-alerts-dev"
+
       }
     ]
   })

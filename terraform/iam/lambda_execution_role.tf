@@ -123,7 +123,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "sns:Publish"
         ]
 
-        Resource = "arn:aws:sns:ap-south-1:585008079281:yt-data-pipeline-alerts-dev:8340b810-5675-4e4b-8a4a-d4866ae0dca7"
+        Resource = "arn:aws:sns:ap-south-1:585008079281:yt-data-pipeline-alerts-dev"
       },
 
       #################################################
