@@ -136,11 +136,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
         Effect = "Allow"
 
         Action = [
-          "athena:GetWorkGroup",
-          "athena:StartQueryExecution",
-          "athena:GetQueryExecution",
-          "athena:GetQueryResults",
-          "athena:StopQueryExecution"
+          "athena:*"
         ]
 
         Resource = "*"
