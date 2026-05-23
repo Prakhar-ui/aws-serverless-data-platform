@@ -235,7 +235,7 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
         Resource = "arn:aws:states:::lambda:invoke"
 
         Parameters = {
-          FunctionName = "arn:aws:lambda:ap-south-1:585008079281:function:data_quality_check"
+          FunctionName = "arn:aws:lambda:ap-south-1:585008079281:function:yt-data-pipeline-data-quality-check"
 
           Payload = {
             layer = "silver"
