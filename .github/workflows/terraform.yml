@@ -64,10 +64,10 @@ jobs:
 
     if: needs.changes.outputs.s3 == 'true'
 
-    runs-on: ubuntu-latest
-
     needs:
       - changes
+
+    runs-on: ubuntu-latest
 
     defaults:
       run:
@@ -117,11 +117,10 @@ jobs:
 
     if: needs.changes.outputs.iam == 'true'
 
-    runs-on: ubuntu-latest
-
     needs:
       - changes
-      - s3
+
+    runs-on: ubuntu-latest
 
     defaults:
       run:
@@ -171,10 +170,10 @@ jobs:
 
     if: needs.changes.outputs.sns == 'true'
 
-    runs-on: ubuntu-latest
-
     needs:
       - changes
+
+    runs-on: ubuntu-latest
 
     defaults:
       run:
@@ -224,12 +223,10 @@ jobs:
 
     if: needs.changes.outputs.glue == 'true'
 
-    runs-on: ubuntu-latest
-
     needs:
       - changes
-      - s3
-      - iam
+
+    runs-on: ubuntu-latest
 
     defaults:
       run:
@@ -279,13 +276,10 @@ jobs:
 
     if: needs.changes.outputs.lambda == 'true'
 
-    runs-on: ubuntu-latest
-
     needs:
       - changes
-      - iam
-      - sns
-      - glue
+
+    runs-on: ubuntu-latest
 
     defaults:
       run:
@@ -335,14 +329,10 @@ jobs:
 
     if: needs.changes.outputs.step_function == 'true'
 
-    runs-on: ubuntu-latest
-
     needs:
       - changes
-      - iam
-      - sns
-      - glue
-      - lambda
+
+    runs-on: ubuntu-latest
 
     defaults:
       run:
