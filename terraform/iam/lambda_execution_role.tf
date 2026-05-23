@@ -140,6 +140,24 @@ resource "aws_iam_role_policy" "lambda_policy" {
         ]
 
         Resource = "*"
+      },
+
+      {
+        Sid = "AthenaQueryResultsBucket"
+
+        Effect = "Allow"
+
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:ListBucket",
+          "s3:DeleteObject"
+        ]
+
+        Resource = [
+          "arn:aws:s3:::yt-data-pipeline-query-result-prakhar",
+          "arn:aws:s3:::yt-data-pipeline-query-result-prakhar/*"
+        ]
       }
 
     ]
