@@ -63,7 +63,12 @@ resource "aws_iam_role_policy" "step_function_inline_policy" {
           "lambda:InvokeFunction"
         ]
 
-        Resource = "arn:aws:lambda:ap-south-1:*:function:yt-data-pipeline-*"
+        Resource = [
+          "arn:aws:lambda:ap-south-1:585008079281:function:yt-data-pipeline-data-quality-check",
+          "arn:aws:lambda:ap-south-1:585008079281:function:yt-data-pipeline-json-to-parquet-dev",
+          "arn:aws:lambda:ap-south-1:585008079281:function:yt-data-pipeline-youtube-ingestion-dev"
+        ]
+
       },
 
       #################################################
