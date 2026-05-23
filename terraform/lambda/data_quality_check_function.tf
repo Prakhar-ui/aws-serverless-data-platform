@@ -5,7 +5,7 @@
 data "archive_file" "data_quality_check_function_zip" {
   type = "zip"
 
-  source_file = "${path.module}/scripts/data_quality_check/lambda_function.py"
+  source_dir = "${path.module}/scripts/data_quality_check"
 
   output_path = "${path.module}/data_quality_check_function.zip"
 }
@@ -17,19 +17,40 @@ data "archive_file" "data_quality_check_function_zip" {
 resource "aws_lambda_function" "data_quality_check_function" {
   function_name = "yt-data-pipeline-data-quality-check"
 
-  filename         = data.archive_file.data_quality_check_function_zip.output_path
+  filename = data.archive_file.data_quality_check_function_zip.output_path
+
   source_code_hash = data.archive_file.data_quality_check_function_zip.output_base64sha256
+
+  #################################################
+  # IAM Role
+  #################################################
 
   role = data.terraform_remote_state.iam.outputs.lambda_iam_role_arn
 
-  handler = "lambda_function.lambda_handler"
+  #################################################
+  # Runtime
+  #################################################
+
   runtime = "python3.12"
+
+  handler = "lambda_function.lambda_handler"
+
+  architectures = ["x86_64"]
+
+  #################################################
+  # AWS SDK Pandas Layer (awswrangler)
+  #################################################
+
+  layers = [
+    "arn:aws:lambda:ap-south-1:336392948345:layer:AWSSDKPandas-Python312:16"
+  ]
 
   #################################################
   # Lambda Configuration
   #################################################
 
-  timeout     = 300
+  timeout = 300
+
   memory_size = 512
 
   #################################################
