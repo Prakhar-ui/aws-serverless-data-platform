@@ -97,15 +97,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
         Effect = "Allow"
 
         Action = [
-          "glue:GetTable",
-          "glue:GetTables",
-          "glue:GetDatabase",
-          "glue:GetDatabases",
-          "glue:CreateTable",
-          "glue:UpdateTable",
-          "glue:GetPartitions",
-          "glue:CreatePartition",
-          "glue:BatchCreatePartition"
+          "glue:*"
         ]
 
         Resource = "*"
