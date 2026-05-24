@@ -42,8 +42,13 @@ FRESHNESS_HOURS = 48  # Data should be no older than this
 
 
 CRITICAL_COLUMNS = {
-    "clean_statistics": ["video_id", "title", "channel_title", "views", "region"],
-    "clean_reference_data": ["id", "region"],
+    "clean_statistics": [
+        "video_id",
+        "title",
+        "channel_title",
+        "views",
+        "region"
+    ]
 }
 
 
@@ -174,7 +179,7 @@ def lambda_handler(event, context):
     {
         "layer": "silver",
         "database": "yt-pipeline-silver-dev",
-        "tables": ["clean_statistics", "clean_reference_data"]
+        "tables": ["clean_statistics"]
     }
     """
     database = event.get("database", "yt-pipeline-silver-dev")

@@ -59,53 +59,18 @@ stats_dyf = glueContext.create_dynamic_frame.from_catalog(
 stats_df = stats_dyf.toDF()
 logger.info(f"Statistics records: {stats_df.count()}")
 
-# ── Read Reference Data (optional) + Build category lookup ───────────────────
-logger.info("Attempting to read Silver reference data for category names...")
+# ── Category Name Fallback ───────────────────────────────────────────────────
+logger.info("Using category_id directly without reference table...")
 
-try:
-    ref_dyf = glueContext.create_dynamic_frame.from_catalog(
-        database=SILVER_DB,
-        table_name="clean_reference_data",
-        transformation_ctx="ref",
-    )
-    ref_df = ref_dyf.toDF()
+stats_df = stats_df.withColumn(
+    "category_name",
+    F.concat(F.lit("category_"), F.col("category_id").cast("string"))
+)
 
-    category_lookup = None
-
-    # Some crawlers flatten nested fields in different ways; handle common cases
-    if "id" in ref_df.columns and "snippet.title" in ref_df.columns:
-        category_lookup = ref_df.select(
-            F.col("id").cast("long").alias("category_id"),
-            F.col("`snippet.title`").alias("category_name"),
-        ).dropDuplicates(["category_id"])
-
-    elif "id" in ref_df.columns and "snippet_title" in ref_df.columns:
-        category_lookup = ref_df.select(
-            F.col("id").cast("long").alias("category_id"),
-            F.col("snippet_title").alias("category_name"),
-        ).dropDuplicates(["category_id"])
-
-    else:
-        logger.warn(
-            "Could not find expected category title columns in reference data. "
-            f"Columns found: {ref_df.columns}"
-        )
-
-    if category_lookup is not None:
-        logger.info(f"Category lookup entries: {category_lookup.count()}")
-
-        # Ensure join key types match
-        if "category_id" in stats_df.columns:
-            stats_df = stats_df.withColumn("category_id", F.col("category_id").cast("long"))
-
-        stats_df = stats_df.join(
-            F.broadcast(category_lookup),
-            on="category_id",
-            how="left",
-        )
-
-except Exception as e:
-    logger.warn(f"Could not load reference data: {e}. Proceeding without category names.")
+stats_df = stats_df.fillna(
+    "Unknown",
+    subset=["category_name"]
+)
 
 # ✅ Always guarantee category_name exists
 if "category_name" not in stats_df.columns:

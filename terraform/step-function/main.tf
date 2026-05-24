@@ -243,8 +243,7 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
             database = "yt-pipeline-silver-dev"
 
             tables = [
-              "clean_statistics",
-              "clean_reference_data"
+              "clean_statistics"
             ]
           }
         }
