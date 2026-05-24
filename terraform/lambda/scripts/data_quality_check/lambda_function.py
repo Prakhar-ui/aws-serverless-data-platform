@@ -173,11 +173,11 @@ def lambda_handler(event, context):
     Expected event:
     {
         "layer": "silver",
-        "database": "yt_pipeline_silver_dev",
+        "database": "yt-pipeline-silver-dev",
         "tables": ["clean_statistics", "clean_reference_data"]
     }
     """
-    database = event.get("database", "yt_pipeline_silver_dev")
+    database = event.get("database", "yt-pipeline-silver-dev")
     tables = event.get("tables", ["clean_statistics"])
 
     all_results = []
