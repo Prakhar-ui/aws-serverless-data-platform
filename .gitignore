@@ -2,8 +2,10 @@
 .terraform/
 
 # Terraform state files
+**/.terraform/
 *.tfstate
-*.tfstate.backup
+*.tfstate.*
+crash.log
 
 # Terraform variable files (optional/sensitive)
 *.tfvars

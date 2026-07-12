@@ -2,23 +2,23 @@
 # Create Lambda ZIP Package
 #################################################
 
-data "archive_file" "youtube_api_integstion_function_zip" {
+data "archive_file" "youtube_api_integration_function_zip" {
   type = "zip"
 
-  source_file = "${path.module}/scripts/youtube_api_integstion/lambda_function.py"
+  source_file = "${path.module}/scripts/youtube_api_integration/lambda_function.py"
 
-  output_path = "${path.module}/youtube_api_integstion_function.zip"
+  output_path = "${path.module}/youtube_api_integration_function.zip"
 }
 
 #################################################
 # Lambda Function
 #################################################
 
-resource "aws_lambda_function" "youtube_api_integstion_function" {
+resource "aws_lambda_function" "youtube_api_integration_function" {
   function_name = "yt-data-pipeline-youtube-ingestion-dev"
 
-  filename         = data.archive_file.youtube_api_integstion_function_zip.output_path
-  source_code_hash = data.archive_file.youtube_api_integstion_function_zip.output_base64sha256
+  filename         = data.archive_file.youtube_api_integration_function_zip.output_path
+  source_code_hash = data.archive_file.youtube_api_integration_function_zip.output_base64sha256
 
   role = data.terraform_remote_state.iam.outputs.lambda_iam_role_arn
 

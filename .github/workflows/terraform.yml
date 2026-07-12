@@ -24,7 +24,7 @@ jobs:
       sns: ${{ steps.filter.outputs.sns }}
       glue: ${{ steps.filter.outputs.glue }}
       lambda: ${{ steps.filter.outputs.lambda }}
-      step_function: ${{ steps.filter.outputs.step_function }}
+      step_functions: ${{ steps.filter.outputs.step_functions }}
 
     steps:
 
@@ -53,8 +53,8 @@ jobs:
             lambda:
               - 'terraform/lambda/**'
 
-            step_function:
-              - 'terraform/step-function/**'
+            step_functions:
+              - 'terraform/step_functions/**'
 
   #################################################
   # S3 Infrastructure
@@ -325,9 +325,9 @@ jobs:
   # Step Functions Infrastructure
   #################################################
 
-  step_function:
+  step_functions:
 
-    if: needs.changes.outputs.step_function == 'true'
+    if: needs.changes.outputs.step_functions == 'true'
 
     needs:
       - changes
@@ -336,7 +336,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: ./terraform/step-function
+        working-directory: ./terraform/step_functions
 
     steps:
 

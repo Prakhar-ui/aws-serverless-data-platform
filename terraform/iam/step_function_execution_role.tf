@@ -3,7 +3,7 @@
 #################################################
 
 resource "aws_iam_role" "step_function_role" {
-  name = "yt-data-pipeline-step-function-role-dev"
+  name = "yt-data-pipeline-step_functions-role-dev"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -22,7 +22,7 @@ resource "aws_iam_role" "step_function_role" {
   })
 
   tags = {
-    Name        = "yt-data-pipeline-step-function-role-dev"
+    Name        = "yt-data-pipeline-step_functions-role-dev"
     Environment = "dev"
   }
 }
@@ -42,7 +42,7 @@ resource "aws_iam_role_policy_attachment" "step_function_service_role" {
 #################################################
 
 resource "aws_iam_role_policy" "step_function_inline_policy" {
-  name = "yt-data-pipeline-step-function-inline-policy-dev"
+  name = "yt-data-pipeline-step_functions-inline-policy-dev"
 
   role = aws_iam_role.step_function_role.id
 
