@@ -1,5 +1,3 @@
-data/
-
 # Terraform cache
 .terraform/
 
