@@ -1,194 +1,155 @@
 import sys
-from awsglue.utils import getResolvedOptions
-from pyspark.context import SparkContext
-from awsglue.context import GlueContext
-from awsglue.job import Job
-from awsglue.dynamicframe import DynamicFrame
-
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 
-"""
-Glue Job: Silver → Gold (Analytics Aggregations)
-─────────────────────────────────────────────────
-Reads cleansed statistics and reference data from Silver,
-joins them, and produces business-level aggregations in the Gold layer.
+# ── Transformation Functions (Testable locally with pure PySpark) ────────────
 
-Gold layer tables are optimized for analytics queries in Athena/QuickSight.
+def add_category_name(df: DataFrame) -> DataFrame:
+    """Ensures category_name exists and is populated."""
+    df = df.withColumn(
+        "category_name",
+        F.concat(F.lit("category_"), F.col("category_id").cast("string"))
+    )
 
-Gold tables produced:
-  1. trending_analytics   — Daily trending summaries per region
-  2. channel_analytics    — Channel performance metrics
-  3. category_analytics   — Category-level trends over time
-
-Job Parameters:
-    --JOB_NAME              — Glue job name
-    --silver_database       — Silver Glue catalog database
-    --gold_bucket           — Gold S3 bucket
-    --gold_database         — Gold Glue catalog database
-"""
-
-# ── Job Setup ────────────────────────────────────────────────────────────────
-args = getResolvedOptions(sys.argv, [
-    "JOB_NAME",
-    "silver_database",
-    "gold_bucket",
-    "gold_database",
-])
-
-sc = SparkContext()
-glueContext = GlueContext(sc)
-spark = glueContext.spark_session
-job = Job(glueContext)
-job.init(args["JOB_NAME"], args)
-logger = glueContext.get_logger()
-
-SILVER_DB = args["silver_database"]
-GOLD_BUCKET = args["gold_bucket"]
-GOLD_DB = args["gold_database"]
+    if "category_name" not in df.columns:
+        df = df.withColumn("category_name", F.lit("Unknown"))
+    else:
+        df = df.fillna("Unknown", subset=["category_name"])
+        
+    return df
 
 
-# ── Read Silver Tables ──────────────────────────────────────────────────────
-logger.info("Reading Silver layer tables...")
+def build_trending_analytics(df: DataFrame) -> DataFrame:
+    """Builds daily trending summaries per region."""
+    trending = df.groupBy("region", "trending_date_parsed").agg(
+        F.count("video_id").alias("total_videos"),
+        F.sum("views").alias("total_views"),
+        F.sum("likes").alias("total_likes"),
+        F.sum("dislikes").alias("total_dislikes"),
+        F.sum("comment_count").alias("total_comments"),
+        F.avg("views").alias("avg_views_per_video"),
+        F.avg("like_ratio").alias("avg_like_ratio"),
+        F.avg("engagement_rate").alias("avg_engagement_rate"),
+        F.max("views").alias("max_views"),
+        F.countDistinct("channel_title").alias("unique_channels"),
+        F.countDistinct("category_id").alias("unique_categories"),
+    )
+    return trending.withColumn("_aggregated_at", F.current_timestamp())
 
-stats_dyf = glueContext.create_dynamic_frame.from_catalog(
-    database=SILVER_DB,
-    table_name="clean_statistics",
-    transformation_ctx="stats",
-)
-stats_df = stats_dyf.toDF()
-logger.info(f"Statistics records: {stats_df.count()}")
 
-# ── Category Name Fallback ───────────────────────────────────────────────────
-logger.info("Using category_id directly without reference table...")
+def build_channel_analytics(df: DataFrame) -> DataFrame:
+    """Builds channel performance metrics ranked by regional views."""
+    channel = df.groupBy("channel_title", "region").agg(
+        F.countDistinct("video_id").alias("total_videos"),
+        F.sum("views").alias("total_views"),
+        F.sum("likes").alias("total_likes"),
+        F.sum("comment_count").alias("total_comments"),
+        F.avg("views").alias("avg_views_per_video"),
+        F.avg("engagement_rate").alias("avg_engagement_rate"),
+        F.max("views").alias("peak_views"),
+        F.count("trending_date_parsed").alias("times_trending"),
+        F.min("trending_date_parsed").alias("first_trending"),
+        F.max("trending_date_parsed").alias("last_trending"),
+        F.collect_set("category_name").alias("categories"),
+    )
 
-stats_df = stats_df.withColumn(
-    "category_name",
-    F.concat(F.lit("category_"), F.col("category_id").cast("string"))
-)
+    window_rank = Window.partitionBy("region").orderBy(F.col("total_views").desc())
+    channel = channel.withColumn("rank_in_region", F.row_number().over(window_rank))
+    
+    return channel.withColumn("_aggregated_at", F.current_timestamp())
 
-stats_df = stats_df.fillna(
-    "Unknown",
-    subset=["category_name"]
-)
 
-# ✅ Always guarantee category_name exists
-if "category_name" not in stats_df.columns:
-    stats_df = stats_df.withColumn("category_name", F.lit("Unknown"))
-else:
-    stats_df = stats_df.fillna("Unknown", subset=["category_name"])
+def build_category_analytics(df: DataFrame) -> DataFrame:
+    """Builds category-level trends over time including view share percentage."""
+    category = df.groupBy("category_name", "category_id", "region", "trending_date_parsed").agg(
+        F.count("video_id").alias("video_count"),
+        F.sum("views").alias("total_views"),
+        F.sum("likes").alias("total_likes"),
+        F.sum("comment_count").alias("total_comments"),
+        F.avg("engagement_rate").alias("avg_engagement_rate"),
+        F.countDistinct("channel_title").alias("unique_channels"),
+    )
 
-# ══════════════════════════════════════════════════════════════════════════════
-# GOLD TABLE 1: Trending Analytics (daily summaries per region)
-# ══════════════════════════════════════════════════════════════════════════════
-logger.info("Building Gold: trending_analytics...")
+    window_total = Window.partitionBy("region", "trending_date_parsed")
+    category = category.withColumn(
+        "view_share_pct",
+        F.round(F.col("total_views") / F.sum("total_views").over(window_total) * 100, 2)
+    )
+    
+    return category.withColumn("_aggregated_at", F.current_timestamp())
 
-trending = stats_df.groupBy("region", "trending_date_parsed").agg(
-    F.count("video_id").alias("total_videos"),
-    F.sum("views").alias("total_views"),
-    F.sum("likes").alias("total_likes"),
-    F.sum("dislikes").alias("total_dislikes"),
-    F.sum("comment_count").alias("total_comments"),
-    F.avg("views").alias("avg_views_per_video"),
-    F.avg("like_ratio").alias("avg_like_ratio"),
-    F.avg("engagement_rate").alias("avg_engagement_rate"),
-    F.max("views").alias("max_views"),
-    F.countDistinct("channel_title").alias("unique_channels"),
-    F.countDistinct("category_id").alias("unique_categories"),
-)
 
-trending = trending.withColumn("_aggregated_at", F.current_timestamp())
+# ── Main Execution (Glue I/O) ────────────────────────────────────────────────
+# Wrapping the execution logic prevents Glue libraries from executing 
+# when you import this file in your unit tests.
 
-trending_path = f"s3://{GOLD_BUCKET}/youtube/trending_analytics/"
-trending_dyf = DynamicFrame.fromDF(trending, glueContext, "trending")
+if __name__ == "__main__":
+    from awsglue.utils import getResolvedOptions
+    from pyspark.context import SparkContext
+    from awsglue.context import GlueContext
+    from awsglue.job import Job
+    from awsglue.dynamicframe import DynamicFrame
 
-sink1 = glueContext.getSink(
-    connection_type="s3",
-    path=trending_path,
-    enableUpdateCatalog=True,
-    updateBehavior="UPDATE_IN_DATABASE",
-    partitionKeys=["region"],
-)
-sink1.setCatalogInfo(catalogDatabase=GOLD_DB, catalogTableName="trending_analytics")
-sink1.setFormat("glueparquet", compression="snappy")
-sink1.writeFrame(trending_dyf)
-logger.info(f"  Written {trending.count()} rows → {trending_path}")
+    # Job Setup
+    args = getResolvedOptions(sys.argv, [
+        "JOB_NAME",
+        "silver_database",
+        "gold_bucket",
+        "gold_database",
+    ])
 
-# ══════════════════════════════════════════════════════════════════════════════
-# GOLD TABLE 2: Channel Analytics
-# ══════════════════════════════════════════════════════════════════════════════
-logger.info("Building Gold: channel_analytics...")
+    sc = SparkContext()
+    glueContext = GlueContext(sc)
+    spark = glueContext.spark_session
+    job = Job(glueContext)
+    job.init(args["JOB_NAME"], args)
+    logger = glueContext.get_logger()
 
-channel = stats_df.groupBy("channel_title", "region").agg(
-    F.countDistinct("video_id").alias("total_videos"),
-    F.sum("views").alias("total_views"),
-    F.sum("likes").alias("total_likes"),
-    F.sum("comment_count").alias("total_comments"),
-    F.avg("views").alias("avg_views_per_video"),
-    F.avg("engagement_rate").alias("avg_engagement_rate"),
-    F.max("views").alias("peak_views"),
-    F.count("trending_date_parsed").alias("times_trending"),
-    F.min("trending_date_parsed").alias("first_trending"),
-    F.max("trending_date_parsed").alias("last_trending"),
-    F.collect_set("category_name").alias("categories"),
-)
+    SILVER_DB = args["silver_database"]
+    GOLD_BUCKET = args["gold_bucket"]
+    GOLD_DB = args["gold_database"]
 
-# Rank channels by total views within each region
-window_rank = Window.partitionBy("region").orderBy(F.col("total_views").desc())
-channel = channel.withColumn("rank_in_region", F.row_number().over(window_rank))
-channel = channel.withColumn("_aggregated_at", F.current_timestamp())
+    # 1. Read Silver Table
+    logger.info("Reading Silver layer tables...")
+    stats_dyf = glueContext.create_dynamic_frame.from_catalog(
+        database=SILVER_DB,
+        table_name="clean_statistics",
+        transformation_ctx="stats",
+    )
+    stats_df = stats_dyf.toDF()
+    logger.info(f"Statistics records: {stats_df.count()}")
 
-channel_path = f"s3://{GOLD_BUCKET}/youtube/channel_analytics/"
-channel_dyf = DynamicFrame.fromDF(channel, glueContext, "channel")
+    # 2. Apply Transformations
+    stats_df = add_category_name(stats_df)
+    
+    trending_df = build_trending_analytics(stats_df)
+    channel_df = build_channel_analytics(stats_df)
+    category_df = build_category_analytics(stats_df)
 
-sink2 = glueContext.getSink(
-    connection_type="s3",
-    path=channel_path,
-    enableUpdateCatalog=True,
-    updateBehavior="UPDATE_IN_DATABASE",
-    partitionKeys=["region"],
-)
-sink2.setCatalogInfo(catalogDatabase=GOLD_DB, catalogTableName="channel_analytics")
-sink2.setFormat("glueparquet", compression="snappy")
-sink2.writeFrame(channel_dyf)
-logger.info(f"  Written {channel.count()} rows → {channel_path}")
+    # 3. Write Gold Tables
+    def write_to_gold(df: DataFrame, table_name: str, path: str):
+        dyf = DynamicFrame.fromDF(df, glueContext, table_name)
+        sink = glueContext.getSink(
+            connection_type="s3",
+            path=path,
+            enableUpdateCatalog=True,
+            updateBehavior="UPDATE_IN_DATABASE",
+            partitionKeys=["region"],
+        )
+        sink.setCatalogInfo(catalogDatabase=GOLD_DB, catalogTableName=table_name)
+        sink.setFormat("glueparquet", compression="snappy")
+        sink.writeFrame(dyf)
+        logger.info(f"  Written {df.count()} rows → {path}")
 
-# ══════════════════════════════════════════════════════════════════════════════
-# GOLD TABLE 3: Category Analytics (trend over time)
-# ══════════════════════════════════════════════════════════════════════════════
-logger.info("Building Gold: category_analytics...")
+    logger.info("Building Gold: trending_analytics...")
+    write_to_gold(trending_df, "trending_analytics", f"s3://{GOLD_BUCKET}/youtube/trending_analytics/")
 
-category = stats_df.groupBy("category_name", "category_id", "region", "trending_date_parsed").agg(
-    F.count("video_id").alias("video_count"),
-    F.sum("views").alias("total_views"),
-    F.sum("likes").alias("total_likes"),
-    F.sum("comment_count").alias("total_comments"),
-    F.avg("engagement_rate").alias("avg_engagement_rate"),
-    F.countDistinct("channel_title").alias("unique_channels"),
-)
+    logger.info("Building Gold: channel_analytics...")
+    write_to_gold(channel_df, "channel_analytics", f"s3://{GOLD_BUCKET}/youtube/channel_analytics/")
 
-# Category share of views per region per day
-window_total = Window.partitionBy("region", "trending_date_parsed")
-category = category.withColumn(
-    "view_share_pct",
-    F.round(F.col("total_views") / F.sum("total_views").over(window_total) * 100, 2)
-)
-category = category.withColumn("_aggregated_at", F.current_timestamp())
+    logger.info("Building Gold: category_analytics...")
+    write_to_gold(category_df, "category_analytics", f"s3://{GOLD_BUCKET}/youtube/category_analytics/")
 
-category_path = f"s3://{GOLD_BUCKET}/youtube/category_analytics/"
-category_dyf = DynamicFrame.fromDF(category, glueContext, "category")
-
-sink3 = glueContext.getSink(
-    connection_type="s3",
-    path=category_path,
-    enableUpdateCatalog=True,
-    updateBehavior="UPDATE_IN_DATABASE",
-    partitionKeys=["region"],
-)
-sink3.setCatalogInfo(catalogDatabase=GOLD_DB, catalogTableName="category_analytics")
-sink3.setFormat("glueparquet", compression="snappy")
-sink3.writeFrame(category_dyf)
-logger.info(f"  Written {category.count()} rows → {category_path}")
-
-logger.info("Gold layer build complete.")
-job.commit()
+    logger.info("Gold layer build complete.")
+    job.commit()
