@@ -1,21 +1,3 @@
-"""
-Lambda: Data Quality Checks
-────────────────────────────
-Called by Step Functions after the Silver layer is built.
-Validates data quality before allowing the Gold aggregation to proceed.
-
-Checks performed:
-  1. Row count — is there enough data?
-  2. Null percentage — are critical columns populated?
-  3. Schema validation — do expected columns exist?
-  4. Value range checks — are numeric values reasonable?
-  5. Freshness — is the data recent enough?
-
-Environment Variables:
-    S3_BUCKET_SILVER        — Silver bucket to check
-    SNS_ALERT_TOPIC_ARN     — SNS for alerts
-"""
-
 import os
 import json
 import logging
@@ -28,18 +10,18 @@ import pandas as pd
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-sns_client = boto3.client("sns")
-SNS_TOPIC = os.environ.get("SNS_ALERT_TOPIC_ARN", ""    )
-ATHENA_OUTPUT = os.environ.get("ATHENA_OUTPUT_LOCATION")
-ATHENA_WORKGROUP = os.environ.get("ATHENA_WORKGROUP")
-AWS_REGION = "ap-south-1"
-
-# ── Thresholds ───────────────────────────────────────────────────────────────
-MIN_ROW_COUNT = int(os.environ.get("DQ_MIN_ROW_COUNT", "10"))
-MAX_NULL_PCT = float(os.environ.get("DQ_MAX_NULL_PERCENT", "5.0"))
-MAX_VIEWS = 50_000_000_000  # 50B — sanity check for view counts
-FRESHNESS_HOURS = 48  # Data should be no older than this
-
+# ── Configuration (Loaded dynamically for testability) ───────────────────────
+def get_config():
+    """Loads environment variables dynamically so tests can override them."""
+    return {
+        "sns_topic": os.environ.get("SNS_ALERT_TOPIC_ARN", ""),
+        "athena_output": os.environ.get("ATHENA_OUTPUT_LOCATION"),
+        "athena_workgroup": os.environ.get("ATHENA_WORKGROUP"),
+        "min_row_count": int(os.environ.get("DQ_MIN_ROW_COUNT", "10")),
+        "max_null_pct": float(os.environ.get("DQ_MAX_NULL_PERCENT", "5.0")),
+        "max_views": 50_000_000_000,
+        "freshness_hours": 48
+    }
 
 CRITICAL_COLUMNS = {
     "clean_statistics": [
@@ -51,23 +33,22 @@ CRITICAL_COLUMNS = {
     ]
 }
 
+# ── Core Business Logic (Pure functions, no AWS dependencies) ────────────────
 
-def check_row_count(df: pd.DataFrame, table_name: str) -> dict:
-    """Check that table has minimum number of rows."""
+def check_row_count(df: pd.DataFrame, table_name: str, min_count: int) -> dict:
     count = len(df)
-    passed = count >= MIN_ROW_COUNT
+    passed = count >= min_count
     return {
         "check": "row_count",
         "table": table_name,
         "value": count,
-        "threshold": MIN_ROW_COUNT,
+        "threshold": min_count,
         "passed": passed,
-        "message": f"Row count: {count} (min: {MIN_ROW_COUNT})",
+        "message": f"Row count: {count} (min: {min_count})",
     }
 
 
-def check_null_percentage(df: pd.DataFrame, table_name: str) -> list:
-    """Check null percentages for critical columns."""
+def check_null_percentage(df: pd.DataFrame, table_name: str, max_null_pct: float) -> list:
     results = []
     cols = CRITICAL_COLUMNS.get(table_name, [])
 
@@ -83,22 +64,21 @@ def check_null_percentage(df: pd.DataFrame, table_name: str) -> list:
             continue
 
         null_pct = (df[col].isna().sum() / len(df)) * 100 if len(df) > 0 else 0
-        passed = null_pct <= MAX_NULL_PCT
+        passed = null_pct <= max_null_pct
         results.append({
             "check": "null_pct",
             "table": table_name,
             "column": col,
             "value": round(null_pct, 2),
-            "threshold": MAX_NULL_PCT,
+            "threshold": max_null_pct,
             "passed": passed,
-            "message": f"{col} null%: {null_pct:.2f}% (max: {MAX_NULL_PCT}%)",
+            "message": f"{col} null%: {null_pct:.2f}% (max: {max_null_pct}%)",
         })
 
     return results
 
 
 def check_schema(df: pd.DataFrame, table_name: str) -> dict:
-    """Check that expected columns exist."""
     expected = set(CRITICAL_COLUMNS.get(table_name, []))
     actual = set(df.columns)
     missing = expected - actual
@@ -112,32 +92,29 @@ def check_schema(df: pd.DataFrame, table_name: str) -> dict:
     }
 
 
-def check_value_ranges(df: pd.DataFrame, table_name: str) -> list:
-    """Check that numeric values are within reasonable ranges."""
+def check_value_ranges(df: pd.DataFrame, table_name: str, max_views: int) -> list:
     results = []
-
-    if table_name != "clean_statistics":
+    if table_name != "clean_statistics" or "views" not in df.columns:
         return results
 
-    if "views" in df.columns:
-        negative = (df["views"] < 0).sum()
-        extreme = (df["views"] > MAX_VIEWS).sum()
-        passed = negative == 0 and extreme == 0
-        results.append({
-            "check": "value_range",
-            "table": table_name,
-            "column": "views",
-            "negative_count": int(negative),
-            "extreme_count": int(extreme),
-            "passed": passed,
-            "message": f"Views: {negative} negative, {extreme} extreme (>{MAX_VIEWS})",
-        })
+    negative = (df["views"] < 0).sum()
+    extreme = (df["views"] > max_views).sum()
+    passed = negative == 0 and extreme == 0
+    
+    results.append({
+        "check": "value_range",
+        "table": table_name,
+        "column": "views",
+        "negative_count": int(negative),
+        "extreme_count": int(extreme),
+        "passed": passed,
+        "message": f"Views: {negative} negative, {extreme} extreme (>{max_views})",
+    })
 
     return results
 
 
-def check_freshness(df: pd.DataFrame, table_name: str) -> dict:
-    """Check that data includes recent records."""
+def check_freshness(df: pd.DataFrame, table_name: str, freshness_hours: int) -> dict:
     if "_processed_at" not in df.columns and "_ingestion_timestamp" not in df.columns:
         return {
             "check": "freshness",
@@ -149,10 +126,11 @@ def check_freshness(df: pd.DataFrame, table_name: str) -> dict:
     ts_col = "_processed_at" if "_processed_at" in df.columns else "_ingestion_timestamp"
     try:
         latest = pd.to_datetime(df[ts_col]).max()
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=FRESHNESS_HOURS)
-        # Handle timezone-naive timestamps
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=freshness_hours)
+        
         if latest.tzinfo is None:
             latest = latest.replace(tzinfo=timezone.utc)
+            
         passed = latest >= cutoff
         return {
             "check": "freshness",
@@ -166,22 +144,37 @@ def check_freshness(df: pd.DataFrame, table_name: str) -> dict:
         return {
             "check": "freshness",
             "table": table_name,
-            "passed": True,
+            "passed": True, # Fail open if unparseable
             "message": f"Could not parse timestamps: {e} — skipping",
         }
 
 
-def lambda_handler(event, context):
-    """
-    Run data quality checks on Silver layer tables.
+# ── AWS I/O Adapters (Easily mockable in tests) ──────────────────────────────
 
-    Expected event:
-    {
-        "layer": "silver",
-        "database": "yt-pipeline-silver-dev",
-        "tables": ["clean_statistics"]
-    }
-    """
+def fetch_table_data(database: str, table_name: str, athena_output: str, workgroup: str) -> pd.DataFrame:
+    """Wrapper for AWS Wrangler to fetch Athena data."""
+    query = f'SELECT * FROM "{table_name}" LIMIT 10000'
+    return wr.athena.read_sql_query(
+        sql=query,
+        database=database,
+        s3_output=athena_output,
+        workgroup=workgroup,
+    )
+
+def send_failure_alert(sns_topic: str, failed_checks: list):
+    """Wrapper for boto3 to send SNS alerts."""
+    sns_client = boto3.client("sns", region_name="ap-south-1")
+    sns_client.publish(
+        TopicArn=sns_topic,
+        Subject="[YT Pipeline] Data quality checks FAILED",
+        Message=json.dumps(failed_checks, indent=2, default=str),
+    )
+
+
+# ── Main Handler ─────────────────────────────────────────────────────────────
+
+def lambda_handler(event, context):
+    config = get_config()
     database = event.get("database", "yt-pipeline-silver-dev")
     tables = event.get("tables", ["clean_statistics"])
 
@@ -192,13 +185,11 @@ def lambda_handler(event, context):
         logger.info(f"Running DQ checks on {database}.{table_name}...")
 
         try:
-            # Read a sample of the data (limit for cost/speed)
-            query = f'SELECT * FROM "{table_name}" LIMIT 10000'
-            df = wr.athena.read_sql_query(
-                sql=query,
-                database=database,
-                s3_output=ATHENA_OUTPUT,
-                workgroup=ATHENA_WORKGROUP,
+            df = fetch_table_data(
+                database, 
+                table_name, 
+                config["athena_output"], 
+                config["athena_workgroup"]
             )
         except Exception as e:
             logger.error(f"Could not read {table_name}: {e}")
@@ -211,13 +202,13 @@ def lambda_handler(event, context):
             overall_passed = False
             continue
 
-        # Run all checks
+        # Run checks and inject config parameters
         checks = []
-        checks.append(check_row_count(df, table_name))
-        checks.extend(check_null_percentage(df, table_name))
+        checks.append(check_row_count(df, table_name, config["min_row_count"]))
+        checks.extend(check_null_percentage(df, table_name, config["max_null_pct"]))
         checks.append(check_schema(df, table_name))
-        checks.extend(check_value_ranges(df, table_name))
-        checks.append(check_freshness(df, table_name))
+        checks.extend(check_value_ranges(df, table_name, config["max_views"]))
+        checks.append(check_freshness(df, table_name, config["freshness_hours"]))
 
         for check in checks:
             logger.info(f"  {check['check']}: {'PASS' if check['passed'] else 'FAIL'} — {check['message']}")
@@ -226,18 +217,18 @@ def lambda_handler(event, context):
 
         all_results.extend(checks)
 
-    # Summary
+    # Summary and Alerting
     passed_count = sum(1 for r in all_results if r["passed"])
     total_count = len(all_results)
-    logger.info(f"DQ Summary: {passed_count}/{total_count} checks passed. Overall: {'PASS' if overall_passed else 'FAIL'}")
+    
+    logger.info(f"DQ Summary: {passed_count}/{total_count} passed. Overall: {'PASS' if overall_passed else 'FAIL'}")
 
-    if not overall_passed and SNS_TOPIC:
+    if not overall_passed and config["sns_topic"]:
         failed = [r for r in all_results if not r["passed"]]
-        sns_client.publish(
-            TopicArn=SNS_TOPIC,
-            Subject="[YT Pipeline] Data quality checks FAILED",
-            Message=json.dumps(failed, indent=2, default=str),
-        )
+        try:
+            send_failure_alert(config["sns_topic"], failed)
+        except Exception as e:
+            logger.error(f"Failed to send SNS alert: {e}")
 
     return {
         "quality_passed": bool(overall_passed),
