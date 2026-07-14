@@ -9,7 +9,7 @@ Infrastructure is fully provisioned using Terraform and automatically deployed u
 ## Architecture
 
 <p align="center">
-    <img src="architecture/architecture.png" width="100%">
+    <img src="architecture/Architecture.png" width="100%">
 </p>
 
 ---
