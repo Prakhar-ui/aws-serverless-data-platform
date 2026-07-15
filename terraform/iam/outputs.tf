@@ -21,3 +21,11 @@ output "step_function_role_arn" {
 output "step_function_role_name" {
   value = aws_iam_role.step_function_role.name
 }
+
+output "eventbridge_role_arn" {
+  value = aws_iam_role.eventbridge_role.arn
+}
+
+output "eventbridge_role_name" {
+  value = aws_iam_role.eventbridge_role.name
+}
