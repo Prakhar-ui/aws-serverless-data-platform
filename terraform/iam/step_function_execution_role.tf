@@ -90,6 +90,22 @@ resource "aws_iam_role_policy" "step_function_inline_policy" {
       },
 
       #################################################
+      # Glue Crawler Permissions
+      #################################################
+
+      {
+        Sid    = "GlueCrawlerAccess"
+        Effect = "Allow"
+
+        Action = [
+          "glue:StartCrawler",
+          "glue:GetCrawler"
+        ]
+
+        Resource = "*"
+      },
+
+      #################################################
       # SNS Publish Permissions
       #################################################
 

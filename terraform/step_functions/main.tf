@@ -85,7 +85,7 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
       }
 
       #################################################
-      # Wait State
+      # Wait State — S3 read-after-write consistency buffer
       #################################################
 
       WaitForS3Consistency = {
@@ -93,7 +93,122 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
 
         Seconds = 10
 
-        Next = "ProcessInParallel"
+        Next = "StartBronzeCrawler"
+      }
+
+      #################################################
+      # Glue Crawler
+      #
+      # Discovers new Bronze partitions/schema before the
+      # Bronze→Silver Glue job reads via the Data Catalog.
+      # Step Functions has no native ".sync" integration for
+      # crawlers, so this uses the standard
+      # start -> wait -> poll -> choice loop pattern.
+      #################################################
+
+      StartBronzeCrawler = {
+
+        Type = "Task"
+
+        Resource = "arn:aws:states:::aws-sdk:glue:startCrawler"
+
+        Parameters = {
+          Name = "yt-data-pipeline-bronze-crawler-dev"
+        }
+
+        ResultPath = null
+
+        Retry = [
+          {
+            ErrorEquals = [
+              "Glue.ThrottlingException"
+            ]
+
+            IntervalSeconds = 10
+
+            MaxAttempts = 3
+
+            BackoffRate = 2
+          }
+        ]
+
+        Catch = [
+          {
+            # Another execution's crawl is still in flight — that's fine,
+            # just start polling instead of failing the pipeline.
+            ErrorEquals = [
+              "Glue.CrawlerRunningException"
+            ]
+
+            Next = "WaitForCrawler"
+
+            ResultPath = null
+          },
+          {
+            ErrorEquals = [
+              "States.ALL"
+            ]
+
+            Next = "NotifyTransformFailure"
+
+            ResultPath = "$.error"
+          }
+        ]
+
+        Next = "WaitForCrawler"
+      }
+
+      WaitForCrawler = {
+        Type = "Wait"
+
+        Seconds = 20
+
+        Next = "GetCrawlerStatus"
+      }
+
+      GetCrawlerStatus = {
+
+        Type = "Task"
+
+        Resource = "arn:aws:states:::aws-sdk:glue:getCrawler"
+
+        Parameters = {
+          Name = "yt-data-pipeline-bronze-crawler-dev"
+        }
+
+        ResultPath = "$.crawler_status"
+
+        Catch = [
+          {
+            ErrorEquals = [
+              "States.ALL"
+            ]
+
+            Next = "NotifyTransformFailure"
+
+            ResultPath = "$.error"
+          }
+        ]
+
+        Next = "EvaluateCrawlerStatus"
+      }
+
+      EvaluateCrawlerStatus = {
+
+        Type = "Choice"
+
+        Choices = [
+          {
+            Variable = "$.crawler_status.Crawler.State"
+
+            StringEquals = "READY"
+
+            Next = "ProcessInParallel"
+          }
+        ]
+
+        # Still RUNNING or STOPPING — keep polling.
+        Default = "WaitForCrawler"
       }
 
       #################################################
@@ -250,6 +365,18 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
 
         ResultPath = "$.dq_result"
 
+        Catch = [
+          {
+            ErrorEquals = [
+              "States.ALL"
+            ]
+
+            Next = "NotifyDQFailure"
+
+            ResultPath = "$.error"
+          }
+        ]
+
         Next = "EvaluateDataQuality"
       }
 
@@ -300,6 +427,18 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
 
         ResultPath = "$.glue_gold_result"
 
+        Catch = [
+          {
+            ErrorEquals = [
+              "States.ALL"
+            ]
+
+            Next = "NotifyTransformFailure"
+
+            ResultPath = "$.error"
+          }
+        ]
+
         Next = "NotifySuccess"
       }
 
@@ -326,18 +465,71 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
 
       #################################################
       # Failure Notifications
+      #
+      # Each of these now actually publishes to SNS before
+      # terminating the execution — previously these were bare
+      # Fail states, so infrastructure-level failures (Glue job
+      # failures, Lambda invoke errors, crawler errors) never
+      # notified anyone at the state-machine level.
       #################################################
 
       NotifyIngestionFailure = {
-        Type = "Fail"
+
+        Type = "Task"
+
+        Resource = "arn:aws:states:::sns:publish"
+
+        Parameters = {
+          TopicArn = "arn:aws:sns:ap-south-1:585008079281:yt-data-pipeline-alerts-dev"
+
+          Subject = "[YT Pipeline] Ingestion stage failed"
+
+          "Message.$" = "States.Format('Pipeline run {} failed during ingestion. Error: {}', $$.Execution.Id, States.JsonToString($.error))"
+        }
+
+        Next = "PipelineFailed"
       }
 
       NotifyTransformFailure = {
-        Type = "Fail"
+
+        Type = "Task"
+
+        Resource = "arn:aws:states:::sns:publish"
+
+        Parameters = {
+          TopicArn = "arn:aws:sns:ap-south-1:585008079281:yt-data-pipeline-alerts-dev"
+
+          Subject = "[YT Pipeline] Transform stage failed"
+
+          "Message.$" = "States.Format('Pipeline run {} failed during crawl/transform. Error: {}', $$.Execution.Id, States.JsonToString($.error))"
+        }
+
+        Next = "PipelineFailed"
       }
 
       NotifyDQFailure = {
+
+        Type = "Task"
+
+        Resource = "arn:aws:states:::sns:publish"
+
+        Parameters = {
+          TopicArn = "arn:aws:sns:ap-south-1:585008079281:yt-data-pipeline-alerts-dev"
+
+          Subject = "[YT Pipeline] Data quality checks failed"
+
+          "Message.$" = "States.Format('Pipeline run {} failed data quality checks. See the data-quality-check Lambda logs for the specific failing checks.', $$.Execution.Id)"
+        }
+
+        Next = "PipelineFailed"
+      }
+
+      PipelineFailed = {
         Type = "Fail"
+
+        Error = "PipelineExecutionFailed"
+
+        Cause = "See the SNS alert and Step Functions execution history for details."
       }
     }
   })
