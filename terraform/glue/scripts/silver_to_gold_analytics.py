@@ -5,18 +5,40 @@ from pyspark.sql.window import Window
 
 # ── Transformation Functions (Testable locally with pure PySpark) ────────────
 
-def add_category_name(df: DataFrame) -> DataFrame:
-    """Ensures category_name exists and is populated."""
-    df = df.withColumn(
-        "category_name",
-        F.concat(F.lit("category_"), F.col("category_id").cast("string"))
+def add_category_name(df: DataFrame, reference_df: DataFrame) -> DataFrame:
+    """Joins the category reference table (ingested from the YouTube videoCategories
+    API and flattened by the json_to_parquet Lambda) onto the statistics data to
+    attach a real, human-readable category_name.
+
+    Category IDs are global but the reference data is stored per-region, so we join
+    on (category_id, region) and fall back to a labeled placeholder only when a
+    region genuinely has no matching category (e.g. a brand-new category ID YouTube
+    hasn't backfilled reference data for yet).
+    """
+    ref = (
+        reference_df
+        .select(
+            F.col("id").cast("long").alias("category_id"),
+            F.col("snippet_title").alias("category_name"),
+            F.col("region").alias("ref_region"),
+        )
+        .dropDuplicates(["category_id", "ref_region"])
     )
 
-    if "category_name" not in df.columns:
-        df = df.withColumn("category_name", F.lit("Unknown"))
-    else:
-        df = df.fillna("Unknown", subset=["category_name"])
-        
+    df = df.join(
+        ref,
+        on=(df["category_id"] == ref["category_id"]) & (df["region"] == ref["ref_region"]),
+        how="left",
+    ).drop(ref["category_id"]).drop("ref_region")
+
+    df = df.withColumn(
+        "category_name",
+        F.coalesce(
+            F.col("category_name"),
+            F.concat(F.lit("Unknown Category "), F.col("category_id").cast("string")),
+        )
+    )
+
     return df
 
 
@@ -97,6 +119,7 @@ if __name__ == "__main__":
         "silver_database",
         "gold_bucket",
         "gold_database",
+        "reference_table",
     ])
 
     sc = SparkContext()
@@ -120,8 +143,17 @@ if __name__ == "__main__":
     stats_df = stats_dyf.toDF()
     logger.info(f"Statistics records: {stats_df.count()}")
 
+    logger.info(f"Reading Silver reference table: {args['reference_table']}...")
+    reference_dyf = glueContext.create_dynamic_frame.from_catalog(
+        database=SILVER_DB,
+        table_name=args["reference_table"],
+        transformation_ctx="reference",
+    )
+    reference_df = reference_dyf.toDF()
+    logger.info(f"Reference records: {reference_df.count()}")
+
     # 2. Apply Transformations
-    stats_df = add_category_name(stats_df)
+    stats_df = add_category_name(stats_df, reference_df)
     
     trending_df = build_trending_analytics(stats_df)
     channel_df = build_channel_analytics(stats_df)

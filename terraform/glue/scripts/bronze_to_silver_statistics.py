@@ -205,6 +205,7 @@ if __name__ == "__main__":
             enableUpdateCatalog=True,
             updateBehavior="UPDATE_IN_DATABASE",
             partitionKeys=["region"],
+            transformation_ctx="silver_sink",
         )
         sink.setCatalogInfo(catalogDatabase=args["silver_database"], catalogTableName=args["silver_table"])
         sink.setFormat("glueparquet", compression="snappy")
