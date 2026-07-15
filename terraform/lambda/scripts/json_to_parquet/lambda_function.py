@@ -55,12 +55,22 @@ def normalize_json_to_df(raw_data: dict) -> pd.DataFrame:
     return pd.json_normalize(raw_data)
 
 
+def sanitize_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    """Flattens dotted column names from pandas.json_normalize (e.g. 'snippet.title')
+    into underscore form (e.g. 'snippet_title'). The Glue Data Catalog / Hive metastore
+    rejects '.' in column names, so writing this DataFrame straight to a cataloged
+    Parquet table without sanitizing would silently break schema registration —
+    which is why category names never made it downstream before this fix."""
+    df.columns = [c.replace(".", "_") for c in df.columns]
+    return df
+
+
 def validate_category_data(df: pd.DataFrame) -> pd.DataFrame:
     """Validates and deduplicates the category reference data."""
     if df.empty:
         raise ValueError("Empty DataFrame — no category items found")
 
-    required_cols = {"id", "snippet.title"}
+    required_cols = {"id", "snippet_title"}
     actual_cols = set(df.columns)
     missing = required_cols - actual_cols
     
@@ -137,6 +147,7 @@ def lambda_handler(event, context):
 
             # 2. Transform (Pure Logic)
             df = normalize_json_to_df(raw_data)
+            df = sanitize_column_names(df)
             df = validate_category_data(df)
             region = extract_region(key)
             df = enrich_data(df, key, region)

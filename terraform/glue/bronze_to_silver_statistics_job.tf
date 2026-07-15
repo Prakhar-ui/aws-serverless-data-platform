@@ -32,6 +32,8 @@ resource "aws_glue_job" "bronze_to_silver_statistics_glue_job" {
 
     "--enable-glue-datacatalog" = "true"
 
+    "--job-bookmark-option" = "job-bookmark-enable"
+
     "--TempDir" = "s3://yt-data-pipeline-bronze-prakhar/glue/temp/"
 
     #################################################

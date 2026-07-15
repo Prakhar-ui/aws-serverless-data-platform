@@ -32,6 +32,12 @@ resource "aws_glue_job" "silver_to_gold_analytics_glue_job" {
 
     "--enable-glue-datacatalog" = "true"
 
+    # NOTE: job bookmarks are intentionally NOT enabled here. This job recomputes
+    # cumulative aggregates (total views, rankings, etc.) over the entire Silver
+    # table on every run. Bookmarking would make it see only newly-bookmarked
+    # Silver rows, producing incomplete/incorrect aggregates. Bookmarking is only
+    # safe on bronze_to_silver, which does row-level append processing.
+
     "--TempDir" = "s3://yt-data-pipeline-bronze-prakhar/glue/temp/"
 
     #################################################
@@ -53,6 +59,12 @@ resource "aws_glue_job" "silver_to_gold_analytics_glue_job" {
     "--gold_bucket" = "yt-data-pipeline-gold-prakhar"
 
     "--gold_database" = "yt-pipeline-gold-dev"
+
+    #################################################
+    # Reference Data (for category_name join)
+    #################################################
+
+    "--reference_table" = "clean_reference_data"
 
     #################################################
     # Optional Additional Buckets
