@@ -152,8 +152,8 @@ if __name__ == "__main__":
 
     # Job Setup
     args = getResolvedOptions(sys.argv, [
-        "JOB_NAME", "bronze_database", "bronze_table", 
-        "silver_bucket", "silver_database", "silver_table"
+        "JOB_NAME", "bronze_database", "bronze_table",
+        "silver_bucket", "silver_database", "silver_table", "silver_path"
     ])
 
     sc = SparkContext()
@@ -166,7 +166,7 @@ if __name__ == "__main__":
     # Config
     BRONZE_DB = args["bronze_database"]
     BRONZE_TABLE = args["bronze_table"]
-    SILVER_PATH = f"s3://{args['silver_bucket']}/youtube/statistics/"
+    SILVER_PATH = f"s3://{args['silver_bucket']}/{args['silver_path']}"
     
     logger.info(f"Bronze: {BRONZE_DB}.{BRONZE_TABLE}")
     logger.info(f"Silver: {args['silver_database']}.{args['silver_table']} → {SILVER_PATH}")
