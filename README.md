@@ -61,11 +61,11 @@ aws-serverless-data-platform/
 │   └── workflows/
 │
 ├── architecture/
-│   └── architecture.png
+│   └── Architecture.png
 │
 ├── data/
-│   ├── historical/
-│   └── reference/
+│   ├── reference_category_id.json
+│   └── reference_videos.csv
 │
 ├── docs/
 │
@@ -76,11 +76,14 @@ aws-serverless-data-platform/
 │   │   └── scripts/
 │   ├── iam/
 │   ├── lambda/
-│   │   └── scripts/
+│   │   ├── scripts/
+│   │   └── variables.tf
 │   ├── s3/
 │   ├── sns/
-│   ├── step_functions/
-│   └── variables/
+│   └── step_functions/
+│
+├── tests/
+│   └── lambda/
 │
 ├── README.md
 └── .gitignore
@@ -281,23 +284,28 @@ Clone the repository
 git clone https://github.com/<username>/aws-serverless-data-platform.git
 ```
 
-Initialize Terraform
+This repo has **no root Terraform configuration** — each folder under `terraform/`
+is its own state (see `backend.tf` in each module), so `terraform init` won't do
+anything useful from the repo root. Instead, run init/plan/apply **inside each
+module directory**, in this order, since later modules read earlier ones via
+`terraform_remote_state`:
+
+1. `terraform/bootstrap` — one-time only, creates the state bucket + lock table
+2. `terraform/s3`, `terraform/iam`, `terraform/sns` — no cross-dependencies, any order
+3. `terraform/glue`, `terraform/lambda`, `terraform/step_functions` — depend on `iam`
+4. `terraform/eventbridge` — depends on `iam` and `step_functions`
 
 ```bash
+cd terraform/<module>
 terraform init
+terraform plan     # terraform/lambda additionally needs -var="youtube_api_key=<key>"
+terraform apply    # terraform/lambda additionally needs -var="youtube_api_key=<key>"
 ```
 
-Review execution plan
-
-```bash
-terraform plan
-```
-
-Deploy infrastructure
-
-```bash
-terraform apply
-```
+In practice, pushing to `main` handles this ordering automatically — the GitHub
+Actions workflow only applies a module when its files changed, and dependent
+modules (`glue`, `lambda`, `step_functions`, `eventbridge`) wait on `iam` (and
+`eventbridge` also waits on `step_functions`) via job `needs`.
 
 ---
 

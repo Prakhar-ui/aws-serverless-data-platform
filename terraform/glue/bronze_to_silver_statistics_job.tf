@@ -46,7 +46,7 @@ resource "aws_glue_job" "bronze_to_silver_statistics_glue_job" {
     # Bronze Layer Parameters
     #################################################
 
-    "--bronze_database" = "yt-pipeline-bronze-dev"
+    "--bronze_database" = "yt_pipeline_bronze_dev"
 
     "--bronze_table" = "raw_statistics"
 
@@ -56,7 +56,7 @@ resource "aws_glue_job" "bronze_to_silver_statistics_glue_job" {
 
     "--silver_bucket" = "yt-data-pipeline-silver-prakhar"
 
-    "--silver_database" = "yt-pipeline-silver-dev"
+    "--silver_database" = "yt_pipeline_silver_dev"
 
     "--silver_table" = "clean_statistics"
 

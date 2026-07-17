@@ -4,7 +4,7 @@
 
 - AWS CLI
 - Terraform >= 1.5
-- Python 3.11
+- Python 3.12
 - Git
 
 ---
@@ -25,9 +25,30 @@ aws configure
 
 ---
 
-## Initialize Terraform
+## Module Layout
+
+There is no root Terraform configuration. Each folder under `terraform/` is an
+independently-stated module (its own `backend.tf`), so every command below is
+run from inside a module directory, not the repo root.
+
+Deploy in this order, since downstream modules read upstream ones via
+`terraform_remote_state`:
+
+1. **`terraform/bootstrap`** — one-time only. Creates the S3 state bucket and
+   DynamoDB lock table every other module's backend points at.
+2. **`terraform/s3`**, **`terraform/iam`**, **`terraform/sns`** — no
+   dependencies on each other, can be applied in any order.
+3. **`terraform/glue`**, **`terraform/lambda`**, **`terraform/step_functions`**
+   — each reads `iam`'s remote state for its execution role ARN.
+4. **`terraform/eventbridge`** — reads both `iam`'s and `step_functions`'
+   remote state.
+
+---
+
+## Initialize Terraform (per module)
 
 ```bash
+cd terraform/<module>
 terraform init
 ```
 
@@ -47,12 +68,24 @@ terraform validate
 terraform plan
 ```
 
+`terraform/lambda` additionally requires the YouTube API key:
+
+```bash
+terraform plan -var="youtube_api_key=<your-key>"
+```
+
 ---
 
 ## Apply
 
 ```bash
 terraform apply
+```
+
+`terraform/lambda` again requires the same `-var` flag:
+
+```bash
+terraform apply -var="youtube_api_key=<your-key>"
 ```
 
 ---
@@ -72,6 +105,18 @@ Check:
 
 ## Destroy
 
+Tear down in the **reverse** order of deployment (dependents before their
+dependencies), from inside each module directory:
+
 ```bash
-terraform destroy
+cd terraform/eventbridge   && terraform destroy
+cd terraform/step_functions && terraform destroy
+cd terraform/lambda        && terraform destroy -var="youtube_api_key=<your-key>"
+cd terraform/glue          && terraform destroy
+cd terraform/sns           && terraform destroy
+cd terraform/iam           && terraform destroy
+cd terraform/s3            && terraform destroy
 ```
+
+Leave `terraform/bootstrap` in place unless you're permanently done with the
+project — destroying it deletes the state bucket every other module depends on.

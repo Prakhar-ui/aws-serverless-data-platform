@@ -3,7 +3,7 @@
 #################################################
 
 resource "aws_glue_catalog_database" "bronze_db" {
-  name        = "yt-pipeline-bronze-dev"
+  name        = "yt_pipeline_bronze_dev"
   description = "yt pipeline - raw data"
 }
 
@@ -12,7 +12,7 @@ resource "aws_glue_catalog_database" "bronze_db" {
 #################################################
 
 resource "aws_glue_catalog_database" "silver_db" {
-  name        = "yt-pipeline-silver-dev"
+  name        = "yt_pipeline_silver_dev"
   description = "yt pipeline - cleansed data"
 }
 
@@ -21,6 +21,6 @@ resource "aws_glue_catalog_database" "silver_db" {
 #################################################
 
 resource "aws_glue_catalog_database" "gold_db" {
-  name        = "yt-pipeline-gold-dev"
+  name        = "yt_pipeline_gold_dev"
   description = "yt pipeline - analytics aggregation"
 }

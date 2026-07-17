@@ -288,13 +288,13 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
 
                   Arguments = {
 
-                    "--bronze_database" = "yt-pipeline-bronze-dev"
+                    "--bronze_database" = "yt_pipeline_bronze_dev"
 
                     "--bronze_table" = "raw_statistics"
 
                     "--silver_bucket" = "yt-data-pipeline-silver-prakhar"
 
-                    "--silver_database" = "yt-pipeline-silver-dev"
+                    "--silver_database" = "yt_pipeline_silver_dev"
 
                     "--silver_table" = "clean_statistics"
 
@@ -357,7 +357,7 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
           Payload = {
             layer = "silver"
 
-            database = "yt-pipeline-silver-dev"
+            database = "yt_pipeline_silver_dev"
 
             tables = [
               "clean_statistics"
@@ -419,11 +419,11 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
 
           Arguments = {
 
-            "--silver_database" = "yt-pipeline-silver-dev"
+            "--silver_database" = "yt_pipeline_silver_dev"
 
             "--gold_bucket" = "yt-data-pipeline-gold-prakhar"
 
-            "--gold_database" = "yt-pipeline-gold-dev"
+            "--gold_database" = "yt_pipeline_gold_dev"
           }
         }
 

@@ -175,7 +175,7 @@ def send_failure_alert(sns_topic: str, failed_checks: list):
 
 def lambda_handler(event, context):
     config = get_config()
-    database = event.get("database", "yt-pipeline-silver-dev")
+    database = event.get("database", "yt_pipeline_silver_dev")
     tables = event.get("tables", ["clean_statistics"])
 
     all_results = []

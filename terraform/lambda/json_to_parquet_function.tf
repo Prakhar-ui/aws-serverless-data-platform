@@ -79,7 +79,7 @@ resource "aws_lambda_function" "json_to_parquet_function" {
 
       S3_BUCKET_SILVER = "yt-data-pipeline-silver-prakhar"
 
-      GLUE_DB_SILVER = "yt-pipeline-silver-dev"
+      GLUE_DB_SILVER = "yt_pipeline_silver_dev"
 
       GLUE_TABLE_REFERENCE = "clean_reference_data"
 

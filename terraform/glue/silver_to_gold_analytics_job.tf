@@ -50,7 +50,7 @@ resource "aws_glue_job" "silver_to_gold_analytics_glue_job" {
     # Silver Layer Parameters
     #################################################
 
-    "--silver_database" = "yt-pipeline-silver-dev"
+    "--silver_database" = "yt_pipeline_silver_dev"
 
     #################################################
     # Gold Layer Parameters
@@ -58,7 +58,7 @@ resource "aws_glue_job" "silver_to_gold_analytics_glue_job" {
 
     "--gold_bucket" = "yt-data-pipeline-gold-prakhar"
 
-    "--gold_database" = "yt-pipeline-gold-dev"
+    "--gold_database" = "yt_pipeline_gold_dev"
 
     #################################################
     # Reference Data (for category_name join)

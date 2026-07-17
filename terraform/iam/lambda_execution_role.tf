@@ -112,8 +112,8 @@ resource "aws_iam_role_policy" "lambda_policy" {
 
         Resource = [
           "arn:aws:glue:ap-south-1:585008079281:catalog",
-          "arn:aws:glue:ap-south-1:585008079281:database/yt-pipeline-*",
-          "arn:aws:glue:ap-south-1:585008079281:table/yt-pipeline-*/*"
+          "arn:aws:glue:ap-south-1:585008079281:database/yt_pipeline_*",
+          "arn:aws:glue:ap-south-1:585008079281:table/yt_pipeline_*/*"
         ]
       },
 
