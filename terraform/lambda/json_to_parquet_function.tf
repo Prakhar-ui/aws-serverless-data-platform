@@ -75,6 +75,8 @@ resource "aws_lambda_function" "json_to_parquet_function" {
 
     variables = {
 
+      S3_BUCKET_BRONZE = "yt-data-pipeline-bronze-prakhar"
+
       S3_BUCKET_SILVER = "yt-data-pipeline-silver-prakhar"
 
       GLUE_DB_SILVER = "yt-pipeline-silver-dev"

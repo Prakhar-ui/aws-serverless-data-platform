@@ -166,6 +166,24 @@ def lambda_handler(event, context):
         f"Failed: {len(results['failed'])}."
     )
 
+    if not results["success"]:
+        # Every region failed. The try/except above swallows per-region errors
+        # so this Lambda would otherwise always return normally with
+        # statusCode 200 — which Step Functions reads as a SUCCESSFUL task,
+        # so its Retry/Catch (and therefore NotifyIngestionFailure) would
+        # never fire even though zero data was written anywhere. Raising
+        # here surfaces this as a real Lambda error to Step Functions.
+        error_message = (
+            f"Ingestion {ingestion_id} failed for ALL {len(config['regions'])} regions."
+        )
+        logger.error(error_message)
+        send_alert(
+            config["sns_topic"],
+            subject=f"[YT Pipeline] Ingestion FAILED — {ingestion_id}",
+            message=json.dumps(results, indent=2),
+        )
+        raise RuntimeError(error_message)
+
     if results["failed"]:
         send_alert(
             config["sns_topic"],
@@ -176,5 +194,6 @@ def lambda_handler(event, context):
     return {
         "statusCode": 200,
         "ingestion_id": ingestion_id,
+        "date_partition": now.strftime("%Y-%m-%d"),
         "results": results,
     }

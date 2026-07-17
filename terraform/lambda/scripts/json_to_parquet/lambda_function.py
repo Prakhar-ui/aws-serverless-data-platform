@@ -16,6 +16,7 @@ logger.setLevel(logging.INFO)
 def get_config():
     """Loads environment variables dynamically so tests can override them."""
     return {
+        "bronze_bucket": os.environ.get("S3_BUCKET_BRONZE", "mock-bucket"),
         "silver_bucket": os.environ.get("S3_BUCKET_SILVER", "mock-bucket"),
         "glue_db": os.environ.get("GLUE_DB_SILVER"),
         "glue_table": os.environ.get("GLUE_TABLE_REFERENCE"),
@@ -106,6 +107,29 @@ def read_json_from_s3(bucket: str, key: str) -> dict:
     return json.loads(content)
 
 
+def discover_reference_keys(s3_client, bronze_bucket: str, date_partition: str) -> list:
+    """Lists the category-reference JSON files the ingestion Lambda wrote for a
+    given date partition (youtube/raw_statistics_reference_data/region=X/date=Y/...).
+
+    Used only when this Lambda is invoked directly by Step Functions, which has
+    no real S3 event payload to parse — extract_s3_records() can't discover
+    anything from a plain {"triggered_by": "step_functions"} event, and nothing
+    in this project wires up an actual aws_s3_bucket_notification, so without
+    this the reference pipeline silently processed zero files on every run.
+    """
+    prefix = "youtube/raw_statistics_reference_data/"
+    date_marker = f"date={date_partition}/"
+    keys = []
+
+    paginator = s3_client.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bronze_bucket, Prefix=prefix):
+        for obj in page.get("Contents", []):
+            if date_marker in obj["Key"]:
+                keys.append((bronze_bucket, obj["Key"]))
+
+    return keys
+
+
 def write_to_silver(df: pd.DataFrame, config: dict):
     """Writes the cleaned DataFrame to the Silver bucket via AWS Wrangler."""
     silver_path = f"s3://{config['silver_bucket']}/youtube/reference_data/"
@@ -134,6 +158,27 @@ def lambda_handler(event, context):
     """Process S3 event for new JSON reference files."""
     config = get_config()
     records = extract_s3_records(event)
+
+    # A genuine S3 event notification would have populated `records` above.
+    # When this Lambda is invoked directly by Step Functions instead, there's
+    # no S3 record to parse — discover this run's reference files ourselves.
+    if not records and event.get("triggered_by") == "step_functions":
+        date_partition = event.get("date_partition")
+        if not date_partition:
+            raise ValueError(
+                "date_partition missing from Step Functions payload — cannot "
+                "discover reference files to process"
+            )
+
+        s3_client = boto3.client("s3")
+        records = discover_reference_keys(s3_client, config["bronze_bucket"], date_partition)
+        logger.info(f"Discovered {len(records)} reference file(s) for date={date_partition}")
+
+        if not records:
+            raise RuntimeError(
+                f"No reference-category files found in Bronze for date={date_partition}. "
+                "Category ingestion may have failed for all regions upstream."
+            )
 
     processed = []
     errors = []
@@ -170,6 +215,12 @@ def lambda_handler(event, context):
             config["sns_topic"],
             subject="[YT Pipeline] Silver reference transform failed",
             message=json.dumps(errors, indent=2),
+        )
+
+    if records and not processed:
+        raise RuntimeError(
+            f"All {len(records)} reference file(s) failed to process. "
+            f"See 'errors' in logs above."
         )
 
     return {
