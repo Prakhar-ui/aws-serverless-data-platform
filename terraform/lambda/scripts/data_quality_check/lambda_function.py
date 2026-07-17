@@ -64,7 +64,7 @@ def check_null_percentage(df: pd.DataFrame, table_name: str, max_null_pct: float
             continue
 
         null_pct = (df[col].isna().sum() / len(df)) * 100 if len(df) > 0 else 0
-        passed = null_pct <= max_null_pct
+        passed = bool(null_pct <= max_null_pct)
         results.append({
             "check": "null_pct",
             "table": table_name,
@@ -97,16 +97,16 @@ def check_value_ranges(df: pd.DataFrame, table_name: str, max_views: int) -> lis
     if table_name != "clean_statistics" or "views" not in df.columns:
         return results
 
-    negative = (df["views"] < 0).sum()
-    extreme = (df["views"] > max_views).sum()
-    passed = negative == 0 and extreme == 0
+    negative = int((df["views"] < 0).sum())
+    extreme = int((df["views"] > max_views).sum())
+    passed = bool(negative == 0 and extreme == 0)
     
     results.append({
         "check": "value_range",
         "table": table_name,
         "column": "views",
-        "negative_count": int(negative),
-        "extreme_count": int(extreme),
+        "negative_count": negative,
+        "extreme_count": extreme,
         "passed": passed,
         "message": f"Views: {negative} negative, {extreme} extreme (>{max_views})",
     })
