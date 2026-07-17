@@ -76,7 +76,9 @@ resource "aws_iam_role_policy" "lambda_policy" {
         Effect = "Allow"
 
         Action = [
-          "s3:*"
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
         ]
 
         Resource = [
@@ -87,18 +89,32 @@ resource "aws_iam_role_policy" "lambda_policy" {
       },
 
       #################################################
-      # AWS Glue Access
+      # AWS Glue Catalog Access
       #################################################
 
       {
-        Sid    = "GlueAccess"
+        Sid    = "GlueCatalogAccess"
         Effect = "Allow"
 
         Action = [
-          "glue:*"
+          "glue:GetDatabase",
+          "glue:GetDatabases",
+          "glue:GetTable",
+          "glue:GetTables",
+          "glue:CreateTable",
+          "glue:UpdateTable",
+          "glue:GetPartition",
+          "glue:GetPartitions",
+          "glue:BatchGetPartition",
+          "glue:BatchCreatePartition",
+          "glue:UpdatePartition"
         ]
 
-        Resource = "*"
+        Resource = [
+          "arn:aws:glue:ap-south-1:585008079281:catalog",
+          "arn:aws:glue:ap-south-1:585008079281:database/yt-pipeline-*",
+          "arn:aws:glue:ap-south-1:585008079281:table/yt-pipeline-*/*"
+        ]
       },
 
       #################################################
@@ -121,15 +137,19 @@ resource "aws_iam_role_policy" "lambda_policy" {
       #################################################
 
       {
-        Sid = "AthenaAccess"
+        Sid = "AthenaQueryAccess"
 
         Effect = "Allow"
 
         Action = [
-          "athena:*"
+          "athena:StartQueryExecution",
+          "athena:GetQueryExecution",
+          "athena:GetQueryResults",
+          "athena:StopQueryExecution",
+          "athena:GetWorkGroup"
         ]
 
-        Resource = "*"
+        Resource = "arn:aws:athena:ap-south-1:585008079281:workgroup/primary"
       },
 
       {
@@ -138,7 +158,10 @@ resource "aws_iam_role_policy" "lambda_policy" {
         Effect = "Allow"
 
         Action = [
-          "s3:*"
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:GetBucketLocation",
+          "s3:ListBucket"
         ]
 
         Resource = [

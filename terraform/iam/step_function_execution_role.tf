@@ -28,16 +28,6 @@ resource "aws_iam_role" "step_function_role" {
 }
 
 #################################################
-# AWS Managed Step Functions Service Role Policy
-#################################################
-
-resource "aws_iam_role_policy_attachment" "step_function_service_role" {
-  role = aws_iam_role.step_function_role.name
-
-  policy_arn = "arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess"
-}
-
-#################################################
 # Custom Inline Policy
 #################################################
 
