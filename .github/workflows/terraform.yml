@@ -23,6 +23,9 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
 
+      - name: Create Plugin Cache Directory
+        run: mkdir -p ~/.terraform.d/plugin-cache
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
