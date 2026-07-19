@@ -133,6 +133,21 @@ resource "aws_iam_role_policy" "lambda_policy" {
       },
 
       #################################################
+      # SQS Access — Send messages to DLQ on failure
+      #################################################
+
+      {
+        Sid    = "SQSSendMessageToDLQ"
+        Effect = "Allow"
+
+        Action = [
+          "sqs:SendMessage"
+        ]
+
+        Resource = format("arn:aws:sqs:%s:%s:%s-lambda-dlq-dev", local.region, local.account_id, local.name_prefix)
+      },
+
+      #################################################
       # SNS Access
       #################################################
 
