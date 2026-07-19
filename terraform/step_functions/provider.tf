@@ -12,3 +12,7 @@ terraform {
 provider "aws" {
   region = "ap-south-1"
 }
+
+# Dynamically resolve account ID and region for portable ARN construction
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}

@@ -1,3 +1,9 @@
+locals {
+  account_id  = data.aws_caller_identity.current.account_id
+  region      = data.aws_region.current.name
+  name_prefix = "yt-data-pipeline"
+}
+
 #################################################
 # Fetch IAM Remote State
 #################################################
@@ -18,7 +24,7 @@ data "terraform_remote_state" "iam" {
 
 resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
 
-  name = "yt-data-pipeline-orchestration-dev"
+  name = "${local.name_prefix}-orchestration-dev"
 
   role_arn = data.terraform_remote_state.iam.outputs.step_function_role_arn
 
@@ -43,12 +49,12 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
         Resource = "arn:aws:states:::lambda:invoke"
 
         Parameters = {
-          FunctionName = "arn:aws:lambda:ap-south-1:585008079281:function:yt-data-pipeline-youtube-ingestion-dev"
+          FunctionName = format("arn:aws:lambda:%s:%s:function:%s-youtube-ingestion-dev", local.region, local.account_id, local.name_prefix)
 
           Payload = {
             triggered_by = "step_functions"
 
-            "execution_id.$" = "$$.Execution.Id"
+            "execution_id.$" = "$.Execution.Id"
           }
         }
 
@@ -113,7 +119,7 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
         Resource = "arn:aws:states:::aws-sdk:glue:startCrawler"
 
         Parameters = {
-          Name = "yt-data-pipeline-bronze-crawler-dev"
+          Name = "${local.name_prefix}-bronze-crawler-dev"
         }
 
         ResultPath = null
@@ -173,7 +179,7 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
         Resource = "arn:aws:states:::aws-sdk:glue:getCrawler"
 
         Parameters = {
-          Name = "yt-data-pipeline-bronze-crawler-dev"
+          Name = "${local.name_prefix}-bronze-crawler-dev"
         }
 
         ResultPath = "$.crawler_status"
@@ -237,7 +243,7 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
                 Resource = "arn:aws:states:::lambda:invoke"
 
                 Parameters = {
-                  FunctionName = "arn:aws:lambda:ap-south-1:585008079281:function:yt-data-pipeline-json-to-parquet-dev"
+                  FunctionName = format("arn:aws:lambda:%s:%s:function:%s-json-to-parquet-dev", local.region, local.account_id, local.name_prefix)
 
                   Payload = {
                     triggered_by = "step_functions"
@@ -292,7 +298,7 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
 
                     "--bronze_table" = "raw_statistics"
 
-                    "--silver_bucket" = "yt-data-pipeline-silver-prakhar"
+                    "--silver_bucket" = format("%s-silver-%s", local.name_prefix, local.account_id)
 
                     "--silver_database" = "yt_pipeline_silver_dev"
 
@@ -352,7 +358,7 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
         Resource = "arn:aws:states:::lambda:invoke"
 
         Parameters = {
-          FunctionName = "arn:aws:lambda:ap-south-1:585008079281:function:yt-data-pipeline-data-quality-check"
+          FunctionName = format("arn:aws:lambda:%s:%s:function:%s-data-quality-check", local.region, local.account_id, local.name_prefix)
 
           Payload = {
             layer = "silver"
@@ -421,7 +427,7 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
 
             "--silver_database" = "yt_pipeline_silver_dev"
 
-            "--gold_bucket" = "yt-data-pipeline-gold-prakhar"
+            "--gold_bucket" = format("%s-gold-%s", local.name_prefix, local.account_id)
 
             "--gold_database" = "yt_pipeline_gold_dev"
           }
@@ -455,11 +461,11 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
         Resource = "arn:aws:states:::sns:publish"
 
         Parameters = {
-          TopicArn = "arn:aws:sns:ap-south-1:585008079281:yt-data-pipeline-alerts-dev"
+          TopicArn = format("arn:aws:sns:%s:%s:%s-alerts-dev", local.region, local.account_id, local.name_prefix)
 
           Subject = "[YT Pipeline] Pipeline completed successfully"
 
-          "Message.$" = "States.Format('Pipeline run {} completed successfully', $$.Execution.Id)"
+          "Message.$" = "States.Format('Pipeline run {} completed successfully', $.Execution.Id)"
         }
 
         End = true
@@ -482,11 +488,11 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
         Resource = "arn:aws:states:::sns:publish"
 
         Parameters = {
-          TopicArn = "arn:aws:sns:ap-south-1:585008079281:yt-data-pipeline-alerts-dev"
+          TopicArn = format("arn:aws:sns:%s:%s:%s-alerts-dev", local.region, local.account_id, local.name_prefix)
 
           Subject = "[YT Pipeline] Ingestion stage failed"
 
-          "Message.$" = "States.Format('Pipeline run {} failed during ingestion. Error: {}', $$.Execution.Id, States.JsonToString($.error))"
+          "Message.$" = "States.Format('Pipeline run {} failed during ingestion. Error: {}', $.Execution.Id, States.JsonToString($.error))"
         }
 
         Next = "PipelineFailed"
@@ -499,11 +505,11 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
         Resource = "arn:aws:states:::sns:publish"
 
         Parameters = {
-          TopicArn = "arn:aws:sns:ap-south-1:585008079281:yt-data-pipeline-alerts-dev"
+          TopicArn = format("arn:aws:sns:%s:%s:%s-alerts-dev", local.region, local.account_id, local.name_prefix)
 
           Subject = "[YT Pipeline] Transform stage failed"
 
-          "Message.$" = "States.Format('Pipeline run {} failed during crawl/transform. Error: {}', $$.Execution.Id, States.JsonToString($.error))"
+          "Message.$" = "States.Format('Pipeline run {} failed during crawl/transform. Error: {}', $.Execution.Id, States.JsonToString($.error))"
         }
 
         Next = "PipelineFailed"
@@ -516,11 +522,11 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
         Resource = "arn:aws:states:::sns:publish"
 
         Parameters = {
-          TopicArn = "arn:aws:sns:ap-south-1:585008079281:yt-data-pipeline-alerts-dev"
+          TopicArn = format("arn:aws:sns:%s:%s:%s-alerts-dev", local.region, local.account_id, local.name_prefix)
 
           Subject = "[YT Pipeline] Data quality checks failed"
 
-          "Message.$" = "States.Format('Pipeline run {} failed data quality checks. See the data-quality-check Lambda logs for the specific failing checks.', $$.Execution.Id)"
+          "Message.$" = "States.Format('Pipeline run {} failed data quality checks. See the data-quality-check Lambda logs for the specific failing checks.', $.Execution.Id)"
         }
 
         Next = "PipelineFailed"
@@ -537,7 +543,8 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
   })
 
   tags = {
-    Name        = "yt-data-pipeline-orchestration-dev"
+    Name        = "${local.name_prefix}-orchestration-dev"
     Environment = "dev"
+    Project     = local.name_prefix
   }
 }
