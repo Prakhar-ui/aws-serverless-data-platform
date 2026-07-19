@@ -1,17 +1,69 @@
-# Terraform cache
+# ── Terraform ──────────────────────────────────────────────────────────────
 .terraform/
-
-# Terraform state files
 **/.terraform/
 *.tfstate
 *.tfstate.*
+*.tfplan
 crash.log
-
-# Terraform variable files (optional/sensitive)
 *.tfvars
+terraform/archive/
+*.override.tf
 
-# macOS files
+# ── Python ────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+.coverage
+htmlcov/
+coverage.xml
+*.egg/
+dist/
+build/
+
+# ── IDE / Editor ──────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# ── macOS ─────────────────────────────────────────────────────────────────
 .DS_Store
+.DS_Store?
+.AppleDouble
+.LSOverride
+Icon
+**/.DS_Store
 
-# Crash logs
-crash.log
+# ── Session / generated artifacts (NEVER commit) ──────────────────────────
+project_info__*.md
+tmp/
+*.log
+java_pid*
+
+# ── CI / Tooling cache ────────────────────────────────────────────────────
+.history/
+.cache/
+
+# ── LocalStack ────────────────────────────────────────────────────────────
+.tmp/
+
+# ── Environment / Secrets ─────────────────────────────────────────────────
+.env
+.env.local
+*.key
+*.pem
+credentials
+
+# ── JVM / Java (for PySpark dev) ──────────────────────────────────────────
+metastore_db/
+derby.log
+.sparkStaging/
+
+# ── Documentation exports ─────────────────────────────────────────────────
+*.drawio.bkp
