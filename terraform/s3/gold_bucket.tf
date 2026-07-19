@@ -1,6 +1,13 @@
 # Create Gold S3 Bucket
 resource "aws_s3_bucket" "gold_bucket" {
-  bucket = "yt-data-pipeline-gold-prakhar"
+  bucket = local.gold_bucket
+
+  tags = {
+    Name        = local.gold_bucket
+    Environment = "dev"
+    Project     = "yt-data-pipeline"
+    DataLayer   = "gold"
+  }
 }
 
 # Enable Encryption
