@@ -4,7 +4,7 @@
 
 resource "aws_iam_role" "eventbridge_role" {
 
-  name = "yt-data-pipeline-eventbridge-role-dev"
+  name = "${local.name_prefix}-eventbridge-role-dev"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -23,8 +23,9 @@ resource "aws_iam_role" "eventbridge_role" {
   })
 
   tags = {
-    Name        = "yt-data-pipeline-eventbridge-role-dev"
+    Name        = "${local.name_prefix}-eventbridge-role-dev"
     Environment = "dev"
+    Project     = local.name_prefix
   }
 }
 
@@ -34,7 +35,7 @@ resource "aws_iam_role" "eventbridge_role" {
 
 resource "aws_iam_role_policy" "eventbridge_inline_policy" {
 
-  name = "yt-data-pipeline-eventbridge-inline-policy-dev"
+  name = "${local.name_prefix}-eventbridge-inline-policy-dev"
 
   role = aws_iam_role.eventbridge_role.id
 
@@ -52,7 +53,7 @@ resource "aws_iam_role_policy" "eventbridge_inline_policy" {
         ]
 
         Resource = [
-          "arn:aws:states:ap-south-1:585008079281:stateMachine:yt-data-pipeline-orchestration-dev"
+          format("arn:aws:states:%s:%s:stateMachine:%s-orchestration-dev", local.region, local.account_id, local.name_prefix)
         ]
       }
     ]

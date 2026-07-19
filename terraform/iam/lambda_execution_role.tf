@@ -1,6 +1,6 @@
 resource "aws_iam_role" "lambda_role" {
 
-  name = "yt-data-pipeline-lambda-role-dev"
+  name = "${local.name_prefix}-lambda-role-dev"
 
   assume_role_policy = jsonencode({
 
@@ -20,8 +20,9 @@ resource "aws_iam_role" "lambda_role" {
   })
 
   tags = {
-    Name        = "yt-data-pipeline-lambda-role-dev"
+    Name        = "${local.name_prefix}-lambda-role-dev"
     Environment = "dev"
+    Project     = local.name_prefix
   }
 }
 
@@ -37,12 +38,12 @@ resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
 }
 
 #################################################
-# Custom Policy
+# Custom Policy — Scoped to least privilege
 #################################################
 
 resource "aws_iam_role_policy" "lambda_policy" {
 
-  name = "yt-data-pipeline-lambda-policy-dev"
+  name = "${local.name_prefix}-lambda-policy-dev"
 
   role = aws_iam_role.lambda_role.id
 
@@ -53,7 +54,8 @@ resource "aws_iam_role_policy" "lambda_policy" {
     Statement = [
 
       #################################################
-      # S3 Bucket Access
+      # S3 Bucket Access (Read-only for Bronze, Write for Silver/Gold)
+      # Lambda does NOT need s3:DeleteObject
       #################################################
 
       {
@@ -65,26 +67,39 @@ resource "aws_iam_role_policy" "lambda_policy" {
         ]
 
         Resource = [
-          "arn:aws:s3:::yt-data-pipeline-bronze-prakhar",
-          "arn:aws:s3:::yt-data-pipeline-silver-prakhar",
-          "arn:aws:s3:::yt-data-pipeline-gold-prakhar"
+          format("arn:aws:s3:::%s-bronze-%s", local.name_prefix, local.account_id),
+          format("arn:aws:s3:::%s-silver-%s", local.name_prefix, local.account_id),
+          format("arn:aws:s3:::%s-gold-%s", local.name_prefix, local.account_id)
         ]
       },
 
       {
-        Sid    = "S3ObjectAccess"
+        Sid    = "S3ReadAccess"
         Effect = "Allow"
 
         Action = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:DeleteObject"
+          "s3:GetObject"
         ]
 
         Resource = [
-          "arn:aws:s3:::yt-data-pipeline-bronze-prakhar/*",
-          "arn:aws:s3:::yt-data-pipeline-silver-prakhar/*",
-          "arn:aws:s3:::yt-data-pipeline-gold-prakhar/*"
+          format("arn:aws:s3:::%s-bronze-%s/*", local.name_prefix, local.account_id),
+          format("arn:aws:s3:::%s-silver-%s/*", local.name_prefix, local.account_id),
+          format("arn:aws:s3:::%s-gold-%s/*", local.name_prefix, local.account_id)
+        ]
+      },
+
+      {
+        Sid    = "S3WriteAccess"
+        Effect = "Allow"
+
+        Action = [
+          "s3:PutObject"
+        ]
+
+        Resource = [
+          format("arn:aws:s3:::%s-bronze-%s/*", local.name_prefix, local.account_id),
+          format("arn:aws:s3:::%s-silver-%s/*", local.name_prefix, local.account_id),
+          format("arn:aws:s3:::%s-gold-%s/*", local.name_prefix, local.account_id)
         ]
       },
 
@@ -111,9 +126,9 @@ resource "aws_iam_role_policy" "lambda_policy" {
         ]
 
         Resource = [
-          "arn:aws:glue:ap-south-1:585008079281:catalog",
-          "arn:aws:glue:ap-south-1:585008079281:database/yt_pipeline_*",
-          "arn:aws:glue:ap-south-1:585008079281:table/yt_pipeline_*/*"
+          format("arn:aws:glue:%s:%s:catalog", local.region, local.account_id),
+          format("arn:aws:glue:%s:%s:database/yt_pipeline_*", local.region, local.account_id),
+          format("arn:aws:glue:%s:%s:table/yt_pipeline_*/*", local.region, local.account_id)
         ]
       },
 
@@ -129,7 +144,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "sns:Publish"
         ]
 
-        Resource = "arn:aws:sns:ap-south-1:585008079281:yt-data-pipeline-alerts-dev"
+        Resource = format("arn:aws:sns:%s:%s:%s-alerts-dev", local.region, local.account_id, local.name_prefix)
       },
 
       #################################################
@@ -149,7 +164,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "athena:GetWorkGroup"
         ]
 
-        Resource = "arn:aws:athena:ap-south-1:585008079281:workgroup/primary"
+        Resource = format("arn:aws:athena:%s:%s:workgroup/primary", local.region, local.account_id)
       },
 
       {
@@ -165,8 +180,8 @@ resource "aws_iam_role_policy" "lambda_policy" {
         ]
 
         Resource = [
-          "arn:aws:s3:::yt-data-pipeline-query-result-prakhar",
-          "arn:aws:s3:::yt-data-pipeline-query-result-prakhar/*"
+          format("arn:aws:s3:::%s-query-result-%s", local.name_prefix, local.account_id),
+          format("arn:aws:s3:::%s-query-result-%s/*", local.name_prefix, local.account_id)
         ]
       }
 

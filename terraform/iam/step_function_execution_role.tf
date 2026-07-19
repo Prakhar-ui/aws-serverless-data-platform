@@ -3,7 +3,7 @@
 #################################################
 
 resource "aws_iam_role" "step_function_role" {
-  name = "yt-data-pipeline-step_functions-role-dev"
+  name = "${local.name_prefix}-step_functions-role-dev"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -22,17 +22,18 @@ resource "aws_iam_role" "step_function_role" {
   })
 
   tags = {
-    Name        = "yt-data-pipeline-step_functions-role-dev"
+    Name        = "${local.name_prefix}-step_functions-role-dev"
     Environment = "dev"
+    Project     = local.name_prefix
   }
 }
 
 #################################################
-# Custom Inline Policy
+# Custom Inline Policy — Scoped to least privilege
 #################################################
 
 resource "aws_iam_role_policy" "step_function_inline_policy" {
-  name = "yt-data-pipeline-step_functions-inline-policy-dev"
+  name = "${local.name_prefix}-step_functions-inline-policy-dev"
 
   role = aws_iam_role.step_function_role.id
 
@@ -54,15 +55,14 @@ resource "aws_iam_role_policy" "step_function_inline_policy" {
         ]
 
         Resource = [
-          "arn:aws:lambda:ap-south-1:585008079281:function:yt-data-pipeline-data-quality-check",
-          "arn:aws:lambda:ap-south-1:585008079281:function:yt-data-pipeline-json-to-parquet-dev",
-          "arn:aws:lambda:ap-south-1:585008079281:function:yt-data-pipeline-youtube-ingestion-dev"
+          format("arn:aws:lambda:%s:%s:function:%s-data-quality-check", local.region, local.account_id, local.name_prefix),
+          format("arn:aws:lambda:%s:%s:function:%s-json-to-parquet-dev", local.region, local.account_id, local.name_prefix),
+          format("arn:aws:lambda:%s:%s:function:%s-youtube-ingestion-dev", local.region, local.account_id, local.name_prefix)
         ]
-
       },
 
       #################################################
-      # Glue Job Permissions
+      # Glue Job Permissions — scoped to specific job names
       #################################################
 
       {
@@ -76,11 +76,14 @@ resource "aws_iam_role_policy" "step_function_inline_policy" {
           "glue:BatchStopJobRun"
         ]
 
-        Resource = "*"
+        Resource = [
+          format("arn:aws:glue:%s:%s:job/bronze_to_silver_statistics", local.region, local.account_id),
+          format("arn:aws:glue:%s:%s:job/silver_to_gold_analytics", local.region, local.account_id)
+        ]
       },
 
       #################################################
-      # Glue Crawler Permissions
+      # Glue Crawler Permissions — scoped to bronze crawler
       #################################################
 
       {
@@ -92,7 +95,9 @@ resource "aws_iam_role_policy" "step_function_inline_policy" {
           "glue:GetCrawler"
         ]
 
-        Resource = "*"
+        Resource = [
+          format("arn:aws:glue:%s:%s:crawler/%s-bronze-crawler-dev", local.region, local.account_id, local.name_prefix)
+        ]
       },
 
       #################################################
@@ -107,7 +112,7 @@ resource "aws_iam_role_policy" "step_function_inline_policy" {
           "sns:Publish"
         ]
 
-        Resource = "arn:aws:sns:ap-south-1:585008079281:yt-data-pipeline-alerts-dev"
+        Resource = format("arn:aws:sns:%s:%s:%s-alerts-dev", local.region, local.account_id, local.name_prefix)
 
       }
     ]
