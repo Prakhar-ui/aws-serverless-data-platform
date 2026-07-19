@@ -1,4 +1,4 @@
-name: Terraform CI/CD
+name: Terraform Deploy
 
 on:
   push:
@@ -9,160 +9,86 @@ env:
   TF_PLUGIN_CACHE_DIR: ~/.terraform.d/plugin-cache
 
 jobs:
-
-  #################################################
-  # Validate Required Secrets
-  #################################################
-
-  validate-secrets:
+  deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Check AWS Credentials
+      - uses: actions/checkout@v4
+
+      - name: Cache Terraform Plugins
+        uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: terraform-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Deploy s3
+        working-directory: ./terraform/s3
         run: |
-          if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
-            echo "ERROR: AWS_ACCESS_KEY_ID secret not set"
-            exit 1
-          fi
-          if [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
-            echo "ERROR: AWS_SECRET_ACCESS_KEY secret not set"
-            exit 1
-          fi
-          echo "AWS credentials are configured"
-        shell: bash
+          terraform init
+          terraform validate
+          terraform apply -auto-approve
 
-  #################################################
-  # Detect Changed Terraform Modules
-  #################################################
+      - name: Deploy iam
+        working-directory: ./terraform/iam
+        run: |
+          terraform init
+          terraform validate
+          terraform apply -auto-approve
 
-  changes:
-    runs-on: ubuntu-latest
-    needs: [validate-secrets]
-    outputs:
-      s3: ${{ steps.filter.outputs.s3 }}
-      iam: ${{ steps.filter.outputs.iam }}
-      sns: ${{ steps.filter.outputs.sns }}
-      glue: ${{ steps.filter.outputs.glue }}
-      lambda: ${{ steps.filter.outputs.lambda }}
-      step_functions: ${{ steps.filter.outputs.step_functions }}
-      eventbridge: ${{ steps.filter.outputs.eventbridge }}
+      - name: Deploy sns
+        working-directory: ./terraform/sns
+        run: |
+          terraform init
+          terraform validate
+          terraform apply -auto-approve
 
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - name: Deploy glue
+        working-directory: ./terraform/glue
+        run: |
+          terraform init
+          terraform validate
+          terraform apply -auto-approve
 
-      - name: Detect Changed Files
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            s3:
-              - 'terraform/s3/**'
-            iam:
-              - 'terraform/iam/**'
-            sns:
-              - 'terraform/sns/**'
-            glue:
-              - 'terraform/glue/**'
-            lambda:
-              - 'terraform/lambda/**'
-            step_functions:
-              - 'terraform/step_functions/**'
-            eventbridge:
-              - 'terraform/eventbridge/**'
+      - name: Deploy lambda
+        working-directory: ./terraform/lambda
+        run: |
+          terraform init
+          terraform validate
+          terraform apply -auto-approve -var="youtube_api_key=${{ secrets.YOUTUBE_API_KEY }}"
 
-  #################################################
-  # Base Modules (no cross-dependencies, any order)
-  #################################################
+      - name: Deploy step_functions
+        working-directory: ./terraform/step_functions
+        run: |
+          terraform init
+          terraform validate
+          terraform apply -auto-approve
 
-  s3:
-    if: needs.changes.outputs.s3 == 'true'
-    needs: [changes]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy terraform/s3
-        uses: ./.github/actions/deploy-terraform
-        with:
-          working-directory: ./terraform/s3
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Deploy eventbridge
+        working-directory: ./terraform/eventbridge
+        run: |
+          terraform init
+          terraform validate
+          terraform apply -auto-approve
 
-  iam:
-    if: needs.changes.outputs.iam == 'true'
-    needs: [changes]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy terraform/iam
-        uses: ./.github/actions/deploy-terraform
-        with:
-          working-directory: ./terraform/iam
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Deploy monitoring
+        working-directory: ./terraform/monitoring
+        run: |
+          terraform init
+          terraform validate
+          terraform apply -auto-approve
 
-  sns:
-    if: needs.changes.outputs.sns == 'true'
-    needs: [changes]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy terraform/sns
-        uses: ./.github/actions/deploy-terraform
-        with:
-          working-directory: ./terraform/sns
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-  #################################################
-  # Modules that depend on iam
-  #################################################
-
-  glue:
-    if: needs.changes.outputs.glue == 'true'
-    needs: [changes, iam]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy terraform/glue
-        uses: ./.github/actions/deploy-terraform
-        with:
-          working-directory: ./terraform/glue
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-  lambda:
-    if: needs.changes.outputs.lambda == 'true'
-    needs: [changes, iam]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy terraform/lambda
-        uses: ./.github/actions/deploy-terraform
-        with:
-          working-directory: ./terraform/lambda
-          terraform-plan-args: -var="youtube_api_key=${{ secrets.YOUTUBE_API_KEY }}"
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-  step_functions:
-    if: needs.changes.outputs.step_functions == 'true'
-    needs: [changes, iam]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy terraform/step_functions
-        uses: ./.github/actions/deploy-terraform
-        with:
-          working-directory: ./terraform/step_functions
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-  #################################################
-  # Modules that depend on iam + step_functions
-  #################################################
-
-  eventbridge:
-    if: needs.changes.outputs.eventbridge == 'true'
-    needs: [changes, iam, step_functions]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy terraform/eventbridge
-        uses: ./.github/actions/deploy-terraform
-        with:
-          working-directory: ./terraform/eventbridge
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Deploy budget
+        working-directory: ./terraform/budget
+        run: |
+          terraform init
+          terraform validate
+          terraform apply -auto-approve

@@ -71,6 +71,7 @@ aws-serverless-data-platform/
 │
 ├── terraform/
 │   ├── bootstrap/
+│   ├── budget/
 │   ├── eventbridge/
 │   ├── glue/
 │   │   └── scripts/
@@ -78,6 +79,7 @@ aws-serverless-data-platform/
 │   ├── lambda/
 │   │   ├── scripts/
 │   │   └── variables.tf
+│   ├── monitoring/
 │   ├── s3/
 │   ├── sns/
 │   └── step_functions/
@@ -85,6 +87,7 @@ aws-serverless-data-platform/
 ├── tests/
 │   └── lambda/
 │
+├── Makefile
 ├── README.md
 └── .gitignore
 ```
@@ -294,6 +297,8 @@ module directory**, in this order, since later modules read earlier ones via
 2. `terraform/s3`, `terraform/iam`, `terraform/sns` — no cross-dependencies, any order
 3. `terraform/glue`, `terraform/lambda`, `terraform/step_functions` — depend on `iam`
 4. `terraform/eventbridge` — depends on `iam` and `step_functions`
+5. `terraform/monitoring` — depends on resources created in previous modules
+6. `terraform/budget` — standalone, deployed last
 
 ```bash
 cd terraform/<module>
@@ -302,10 +307,18 @@ terraform plan     # terraform/lambda additionally needs -var="youtube_api_key=<
 terraform apply    # terraform/lambda additionally needs -var="youtube_api_key=<key>"
 ```
 
-In practice, pushing to `main` handles this ordering automatically — the GitHub
-Actions workflow only applies a module when its files changed, and dependent
-modules (`glue`, `lambda`, `step_functions`, `eventbridge`) wait on `iam` (and
-`eventbridge` also waits on `step_functions`) via job `needs`.
+Pushing to `main` triggers the GitHub Actions workflow, which deploys all
+modules sequentially in the correct dependency order.
+
+### Destroy everything
+
+```bash
+# Destroy all modules in reverse dependency order:
+make destroy
+
+# Or use the full teardown target (destroy + instructions for state cleanup):
+make destroy-all
+```
 
 ---
 

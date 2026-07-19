@@ -1,4 +1,4 @@
-.PHONY: help init validate plan apply destroy test install fmt precommit
+.PHONY: help init validate plan apply destroy destroy-all fmt test test-glue install precommit clean
 
 MODULES = bootstrap s3 iam sns glue lambda step_functions eventbridge monitoring budget
 
@@ -29,21 +29,31 @@ plan: ## Plan all Terraform modules
 		fi; \
 	done
 
-apply: ## Apply all Terraform modules
-	@for mod in $(MODULES); do \
+apply: ## Apply all Terraform modules in dependency order
+	@for mod in s3 iam sns glue lambda step_functions eventbridge monitoring budget; do \
 		if [ -d "terraform/$${mod}" ]; then \
 			echo "=== $${mod} ==="; \
 			cd terraform/$${mod} && terraform apply -auto-approve && cd ../..; \
 		fi; \
 	done
 
-destroy: ## Destroy all Terraform modules (reverse order)
-	@for mod in $(shell echo "$(MODULES)" | tr ' ' '\n' | tac | tr '\n' ' '); do \
+destroy: ## Destroy all Terraform modules (dependency-safe order)
+	@for mod in budget monitoring eventbridge step_functions lambda glue sns iam s3; do \
 		if [ -d "terraform/$${mod}" ]; then \
 			echo "=== $${mod} ==="; \
 			cd terraform/$${mod} && terraform destroy -auto-approve && cd ../..; \
 		fi; \
 	done
+
+destroy-all: ## Full teardown: destroy infra, then delete terraform state/locks
+	@echo "=== Destroying all infrastructure ==="
+	$(MAKE) destroy
+	@echo ""
+	@echo "=== All infrastructure destroyed ==="
+	@echo "Terraform state files remain in S3 (bucket: yt-terraform-state-prakhar)"
+	@echo "To remove state too, run:"
+	@echo "  cd terraform/bootstrap && terraform destroy -auto-approve"
+	@echo "  aws s3 rb s3://yt-terraform-state-prakhar --force"
 
 fmt: ## Format all Terraform files
 	terraform fmt -recursive terraform/
