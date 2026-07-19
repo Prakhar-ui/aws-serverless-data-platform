@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  localstack:
+    image: localstack/localstack:3.0
+    ports:
+      - '4566:4566'
+    environment:
+      - SERVICES=s3,glue,lambda,sts,iam
+      - AWS_DEFAULT_REGION=ap-south-1
+      - EDGE_PORT=4566
+    volumes:
+      - localstack_data:/var/lib/localstack
+
+  pyspark:
+    image: bitnami/pyspark:3.5
+    platform: linux/amd64
+    volumes:
+      - ./terraform/glue/scripts:/opt/scripts:ro
+      - ./data:/opt/data:ro
+    working_dir: /opt/scripts
+    command: tail -f /dev/null
+    profiles:
+      - dev
+
+volumes:
+  localstack_data:
