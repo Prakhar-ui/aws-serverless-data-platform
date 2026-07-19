@@ -15,7 +15,7 @@ data "archive_file" "data_quality_check_function_zip" {
 #################################################
 
 resource "aws_lambda_function" "data_quality_check_function" {
-  function_name = "yt-data-pipeline-data-quality-check"
+  function_name = "${local.name_prefix}-data-quality-check"
 
   filename = data.archive_file.data_quality_check_function_zip.output_path
 
@@ -67,10 +67,10 @@ resource "aws_lambda_function" "data_quality_check_function" {
 
   environment {
     variables = {
-      SNS_ALERT_TOPIC_ARN    = "arn:aws:sns:ap-south-1:585008079281:yt-data-pipeline-alerts-dev"
+      SNS_ALERT_TOPIC_ARN    = format("arn:aws:sns:%s:%s:%s-alerts-dev", local.region, local.account_id, local.name_prefix)
       DQ_MIN_ROW_COUNT       = "10"
       DQ_MAX_NULL_PERCENT    = "5.0"
-      ATHENA_OUTPUT_LOCATION = "s3://yt-data-pipeline-query-result-prakhar/athena-results/"
+      ATHENA_OUTPUT_LOCATION = format("s3://%s-query-result-%s/athena-results/", local.name_prefix, local.account_id)
       ATHENA_WORKGROUP       = "primary"
 
       ENV = "dev"
@@ -82,7 +82,8 @@ resource "aws_lambda_function" "data_quality_check_function" {
   #################################################
 
   tags = {
-    Name        = "data_quality_check"
+    Name        = "${local.name_prefix}-data-quality-check"
     Environment = "dev"
+    Project     = local.name_prefix
   }
 }

@@ -1,9 +1,14 @@
+locals {
+  name_prefix = "yt-data-pipeline"
+}
+
 resource "aws_sns_topic" "alerts_topic" {
-  name = "yt-data-pipeline-alerts-dev"
+  name = "${local.name_prefix}-alerts-dev"
 
   tags = {
-    Name        = "yt-data-pipeline-alerts-dev"
+    Name        = "${local.name_prefix}-alerts-dev"
     Environment = "dev"
+    Project     = local.name_prefix
   }
 }
 

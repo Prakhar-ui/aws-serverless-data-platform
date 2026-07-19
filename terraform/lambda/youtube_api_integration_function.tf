@@ -15,7 +15,7 @@ data "archive_file" "youtube_api_integration_function_zip" {
 #################################################
 
 resource "aws_lambda_function" "youtube_api_integration_function" {
-  function_name = "yt-data-pipeline-youtube-ingestion-dev"
+  function_name = "${local.name_prefix}-youtube-ingestion-dev"
 
   filename         = data.archive_file.youtube_api_integration_function_zip.output_path
   source_code_hash = data.archive_file.youtube_api_integration_function_zip.output_base64sha256
@@ -48,9 +48,9 @@ resource "aws_lambda_function" "youtube_api_integration_function" {
     variables = {
       YOUTUBE_API_KEY = var.youtube_api_key
 
-      S3_BUCKET_BRONZE = "yt-data-pipeline-bronze-prakhar"
+      S3_BUCKET_BRONZE = format("%s-bronze-%s", local.name_prefix, local.account_id)
 
-      SNS_ALERT_TOPIC_ARN = "arn:aws:sns:ap-south-1:585008079281:yt-data-pipeline-alerts-dev"
+      SNS_ALERT_TOPIC_ARN = format("arn:aws:sns:%s:%s:%s-alerts-dev", local.region, local.account_id, local.name_prefix)
 
       YOUTUBE_REGIONS = "us,gb,in,ca,au,de,fr,jp,kr,ru"
 
@@ -63,7 +63,8 @@ resource "aws_lambda_function" "youtube_api_integration_function" {
   #################################################
 
   tags = {
-    Name        = "yt-data-pipeline-youtube-ingestion-dev"
+    Name        = "${local.name_prefix}-youtube-ingestion-dev"
     Environment = "dev"
+    Project     = local.name_prefix
   }
 }

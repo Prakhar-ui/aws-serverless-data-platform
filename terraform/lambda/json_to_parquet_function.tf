@@ -17,7 +17,7 @@ data "archive_file" "json_to_parquet_function_zip" {
 
 resource "aws_lambda_function" "json_to_parquet_function" {
 
-  function_name = "yt-data-pipeline-json-to-parquet-dev"
+  function_name = "${local.name_prefix}-json-to-parquet-dev"
 
   #################################################
   # Lambda Package
@@ -75,15 +75,15 @@ resource "aws_lambda_function" "json_to_parquet_function" {
 
     variables = {
 
-      S3_BUCKET_BRONZE = "yt-data-pipeline-bronze-prakhar"
+      S3_BUCKET_BRONZE = format("%s-bronze-%s", local.name_prefix, local.account_id)
 
-      S3_BUCKET_SILVER = "yt-data-pipeline-silver-prakhar"
+      S3_BUCKET_SILVER = format("%s-silver-%s", local.name_prefix, local.account_id)
 
       GLUE_DB_SILVER = "yt_pipeline_silver_dev"
 
       GLUE_TABLE_REFERENCE = "clean_reference_data"
 
-      SNS_ALERT_TOPIC_ARN = "arn:aws:sns:ap-south-1:585008079281:yt-data-pipeline-alerts-dev"
+      SNS_ALERT_TOPIC_ARN = format("arn:aws:sns:%s:%s:%s-alerts-dev", local.region, local.account_id, local.name_prefix)
 
       ENV = "dev"
     }
@@ -95,8 +95,10 @@ resource "aws_lambda_function" "json_to_parquet_function" {
 
   tags = {
 
-    Name = "yt-data-pipeline-json-to-parquet-dev"
+    Name = "${local.name_prefix}-json-to-parquet-dev"
 
     Environment = "dev"
+
+    Project = local.name_prefix
   }
 }
