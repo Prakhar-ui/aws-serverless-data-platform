@@ -14,8 +14,12 @@ def add_category_name(df: DataFrame, reference_df: DataFrame) -> DataFrame:
     on (category_id, region) and fall back to a labeled placeholder only when a
     region genuinely has no matching category (e.g. a brand-new category ID YouTube
     hasn't backfilled reference data for yet).
+
+    The reference table is tiny (< 1k rows) so we broadcast it to avoid a full shuffle.
     """
-    ref = (
+    from pyspark.sql.functions import broadcast
+
+    ref = broadcast(
         reference_df
         .select(
             F.col("id").cast("long").alias("category_id"),

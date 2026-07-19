@@ -14,7 +14,7 @@ resource "aws_glue_job" "silver_to_gold_analytics_glue_job" {
   command {
     name = "glueetl"
 
-    script_location = "s3://yt-data-pipeline-bronze-prakhar/glue/scripts/silver_to_gold_analytics.py"
+    script_location = format("s3://%s-bronze-%s/glue/scripts/silver_to_gold_analytics.py", local.name_prefix, local.account_id)
 
     python_version = "3"
   }
@@ -38,7 +38,13 @@ resource "aws_glue_job" "silver_to_gold_analytics_glue_job" {
     # Silver rows, producing incomplete/incorrect aggregates. Bookmarking is only
     # safe on bronze_to_silver, which does row-level append processing.
 
-    "--TempDir" = "s3://yt-data-pipeline-bronze-prakhar/glue/temp/"
+    "--TempDir" = format("s3://%s-bronze-%s/glue/temp/", local.name_prefix, local.account_id)
+
+    #################################################
+    # PySpark Performance Configuration
+    #################################################
+
+    "--conf" = "spark.sql.shuffle.partitions=4 spark.sql.adaptive.enabled=true"
 
     #################################################
     # Environment
@@ -56,7 +62,7 @@ resource "aws_glue_job" "silver_to_gold_analytics_glue_job" {
     # Gold Layer Parameters
     #################################################
 
-    "--gold_bucket" = "yt-data-pipeline-gold-prakhar"
+    "--gold_bucket" = format("%s-gold-%s", local.name_prefix, local.account_id)
 
     "--gold_database" = "yt_pipeline_gold_dev"
 
@@ -70,16 +76,17 @@ resource "aws_glue_job" "silver_to_gold_analytics_glue_job" {
     # Optional Additional Buckets
     #################################################
 
-    "--S3_BUCKET_BRONZE" = "yt-data-pipeline-bronze-prakhar"
+    "--S3_BUCKET_BRONZE" = format("%s-bronze-%s", local.name_prefix, local.account_id)
 
-    "--S3_BUCKET_SILVER" = "yt-data-pipeline-silver-prakhar"
+    "--S3_BUCKET_SILVER" = format("%s-silver-%s", local.name_prefix, local.account_id)
 
-    "--S3_BUCKET_GOLD" = "yt-data-pipeline-gold-prakhar"
+    "--S3_BUCKET_GOLD" = format("%s-gold-%s", local.name_prefix, local.account_id)
   }
 
   tags = {
     Name        = "silver_to_gold_analytics"
     Environment = "dev"
+    Project     = local.name_prefix
   }
 
   depends_on = [

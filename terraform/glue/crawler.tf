@@ -3,18 +3,18 @@
 #################################################
 
 resource "aws_glue_crawler" "bronze_crawler" {
-  name          = "yt-data-pipeline-bronze-crawler-dev"
+  name          = "${local.name_prefix}-bronze-crawler-dev"
   role          = data.terraform_remote_state.iam.outputs.glue_iam_role_arn
   database_name = aws_glue_catalog_database.bronze_db.name
 
   description = "Glue crawler for YouTube raw statistics data"
 
   s3_target {
-    path = "s3://yt-data-pipeline-bronze-prakhar/youtube/raw_statistics/"
+    path = format("s3://%s-bronze-%s/youtube/raw_statistics/", local.name_prefix, local.account_id)
   }
 
   s3_target {
-    path = "s3://yt-data-pipeline-bronze-prakhar/youtube/raw_statistics_reference_data/"
+    path = format("s3://%s-bronze-%s/youtube/raw_statistics_reference_data/", local.name_prefix, local.account_id)
   }
 
   schema_change_policy {
@@ -27,7 +27,8 @@ resource "aws_glue_crawler" "bronze_crawler" {
   }
 
   tags = {
-    Name        = "yt-data-pipeline-bronze-crawler-dev"
+    Name        = "${local.name_prefix}-bronze-crawler-dev"
     Environment = "dev"
+    Project     = local.name_prefix
   }
 }

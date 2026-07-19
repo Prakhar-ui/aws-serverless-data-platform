@@ -1,5 +1,5 @@
 resource "aws_s3_object" "bronze_to_silver_statistics_glue_script" {
-  bucket = "yt-data-pipeline-bronze-prakhar"
+  bucket = format("%s-bronze-%s", local.name_prefix, local.account_id)
 
   key = "glue/scripts/bronze_to_silver_statistics.py"
 
@@ -9,7 +9,7 @@ resource "aws_s3_object" "bronze_to_silver_statistics_glue_script" {
 }
 
 resource "aws_s3_object" "silver_to_gold_analytics_glue_script" {
-  bucket = "yt-data-pipeline-bronze-prakhar"
+  bucket = format("%s-bronze-%s", local.name_prefix, local.account_id)
 
   key = "glue/scripts/silver_to_gold_analytics.py"
 

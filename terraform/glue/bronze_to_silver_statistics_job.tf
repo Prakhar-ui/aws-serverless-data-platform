@@ -14,7 +14,7 @@ resource "aws_glue_job" "bronze_to_silver_statistics_glue_job" {
   command {
     name = "glueetl"
 
-    script_location = "s3://yt-data-pipeline-bronze-prakhar/glue/scripts/bronze_to_silver_statistics.py"
+    script_location = format("s3://%s-bronze-%s/glue/scripts/bronze_to_silver_statistics.py", local.name_prefix, local.account_id)
 
     python_version = "3"
   }
@@ -34,7 +34,13 @@ resource "aws_glue_job" "bronze_to_silver_statistics_glue_job" {
 
     "--job-bookmark-option" = "job-bookmark-enable"
 
-    "--TempDir" = "s3://yt-data-pipeline-bronze-prakhar/glue/temp/"
+    "--TempDir" = format("s3://%s-bronze-%s/glue/temp/", local.name_prefix, local.account_id)
+
+    #################################################
+    # PySpark Performance Configuration
+    #################################################
+
+    "--conf" = "spark.sql.shuffle.partitions=4 spark.sql.adaptive.enabled=true"
 
     #################################################
     # Environment
@@ -54,7 +60,7 @@ resource "aws_glue_job" "bronze_to_silver_statistics_glue_job" {
     # Silver Layer Parameters
     #################################################
 
-    "--silver_bucket" = "yt-data-pipeline-silver-prakhar"
+    "--silver_bucket" = format("%s-silver-%s", local.name_prefix, local.account_id)
 
     "--silver_database" = "yt_pipeline_silver_dev"
 
@@ -66,16 +72,17 @@ resource "aws_glue_job" "bronze_to_silver_statistics_glue_job" {
     # Optional Additional Buckets
     #################################################
 
-    "--S3_BUCKET_BRONZE" = "yt-data-pipeline-bronze-prakhar"
+    "--S3_BUCKET_BRONZE" = format("%s-bronze-%s", local.name_prefix, local.account_id)
 
-    "--S3_BUCKET_SILVER" = "yt-data-pipeline-silver-prakhar"
+    "--S3_BUCKET_SILVER" = format("%s-silver-%s", local.name_prefix, local.account_id)
 
-    "--S3_BUCKET_GOLD" = "yt-data-pipeline-gold-prakhar"
+    "--S3_BUCKET_GOLD" = format("%s-gold-%s", local.name_prefix, local.account_id)
   }
 
   tags = {
     Name        = "bronze_to_silver_statistics"
     Environment = "dev"
+    Project     = local.name_prefix
   }
 
   depends_on = [
