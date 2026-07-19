@@ -73,6 +73,7 @@ jobs:
         run: |
           terraform init
           terraform validate
+          terraform import aws_sfn_state_machine.yt_pipeline_state_machine arn:aws:states:ap-south-1:585008079281:stateMachine:yt-data-pipeline-orchestration-dev || true
           terraform apply -auto-approve
 
       - name: Deploy eventbridge
