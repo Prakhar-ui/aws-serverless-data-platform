@@ -54,7 +54,7 @@ resource "aws_sfn_state_machine" "yt_pipeline_state_machine" {
           Payload = {
             triggered_by = "step_functions"
 
-            "execution_id.$" = "$.Execution.Id"
+            "execution_id.$": "$$.Execution.Id"
           }
         }
 
